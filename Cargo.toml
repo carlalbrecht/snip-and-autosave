@@ -1,0 +1,11 @@
+[package]
+name = "snip-and-autosave"
+version = "0.1.0"
+authors = ["Carl Albrecht <invlpg@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+bindings = { path = "bindings" }
+windows = "0.18"
+win32_notification = "0.1"
+lazy_static = "1.4"
