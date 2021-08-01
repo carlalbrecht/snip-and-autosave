@@ -13,11 +13,16 @@ fn main() {
         Windows::Win32::System::{
             DataExchange::{
                 AddClipboardFormatListener,
-                GetClipboardOwner
+                GetClipboardOwner,
+                GetPriorityClipboardFormat
             },
             LibraryLoader::GetModuleHandleA,
-            Threading::{OpenProcess, PROCESS_ACCESS_RIGHTS},
-            ProcessStatus::K32GetProcessImageFileNameA
+            Threading::{
+                OpenProcess,
+                PROCESS_ACCESS_RIGHTS
+            },
+            ProcessStatus::K32GetProcessImageFileNameA,
+            SystemServices::CLIPBOARD_FORMATS
         },
         Windows::Win32::UI::WindowsAndMessaging::*
     };

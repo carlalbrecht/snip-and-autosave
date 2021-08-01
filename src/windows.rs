@@ -1,9 +1,10 @@
 use bindings::Windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, PSTR},
     System::{
-        DataExchange::AddClipboardFormatListener,
+        DataExchange::{AddClipboardFormatListener, GetPriorityClipboardFormat},
         LibraryLoader::GetModuleHandleA,
         ProcessStatus::K32GetProcessImageFileNameA,
+        SystemServices::CLIPBOARD_FORMATS,
         Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
     },
     UI::WindowsAndMessaging::{
@@ -160,6 +161,17 @@ pub fn get_process_image_file_name(process_handle: HANDLE) -> windows::Result<St
 
         Ok(String::from_utf8(filename_raw)
             .expect("Invalid UTF-8 returned by GetProcessImageFileNameA"))
+    }
+}
+
+pub fn get_priority_clipboard_format(formats: &[CLIPBOARD_FORMATS]) -> Option<CLIPBOARD_FORMATS> {
+    let format =
+        unsafe { GetPriorityClipboardFormat(formats.as_ptr() as *mut u32, formats.len() as i32) };
+
+    if format <= 0 {
+        None
+    } else {
+        Some(CLIPBOARD_FORMATS(format as u32))
     }
 }
 
