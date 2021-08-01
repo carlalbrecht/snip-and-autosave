@@ -1,7 +1,10 @@
 use bindings::Windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, PSTR},
     System::{
-        DataExchange::{AddClipboardFormatListener, GetPriorityClipboardFormat},
+        DataExchange::{
+            AddClipboardFormatListener, CloseClipboard, GetClipboardData,
+            GetPriorityClipboardFormat, OpenClipboard,
+        },
         LibraryLoader::GetModuleHandleA,
         ProcessStatus::K32GetProcessImageFileNameA,
         SystemServices::CLIPBOARD_FORMATS,
@@ -14,6 +17,8 @@ use bindings::Windows::Win32::{
 };
 use core::ptr;
 use std::ffi::CString;
+use std::thread;
+use std::time::Duration;
 use windows::HRESULT;
 
 pub struct AutoClose<T>
@@ -164,6 +169,34 @@ pub fn get_process_image_file_name(process_handle: HANDLE) -> windows::Result<St
     }
 }
 
+fn open_clipboard_inner(window: Option<HWND>) -> windows::Result<AutoClose<()>> {
+    if unsafe { OpenClipboard(window.unwrap_or(HWND(0))).0 != 0 } {
+        Ok(AutoClose::new((), |_| unsafe {
+            CloseClipboard();
+        }))
+    } else {
+        Err(HRESULT::from_thread().into())
+    }
+}
+
+pub fn open_clipboard(window: Option<HWND>) -> windows::Result<AutoClose<()>> {
+    const RETRY_INTERVAL: Duration = Duration::from_millis(50);
+
+    let mut result: windows::Result<AutoClose<()>> = open_clipboard_inner(window.clone());
+
+    for _ in 0..5 {
+        if result.is_ok() {
+            break;
+        }
+
+        thread::sleep(RETRY_INTERVAL);
+
+        result = open_clipboard_inner(window.clone());
+    }
+
+    result
+}
+
 pub fn get_priority_clipboard_format(formats: &[CLIPBOARD_FORMATS]) -> Option<CLIPBOARD_FORMATS> {
     let format =
         unsafe { GetPriorityClipboardFormat(formats.as_ptr() as *mut u32, formats.len() as i32) };
@@ -172,6 +205,16 @@ pub fn get_priority_clipboard_format(formats: &[CLIPBOARD_FORMATS]) -> Option<CL
         None
     } else {
         Some(CLIPBOARD_FORMATS(format as u32))
+    }
+}
+
+pub unsafe fn get_clipboard_data<T>(format: CLIPBOARD_FORMATS) -> windows::Result<*const T> {
+    let handle = GetClipboardData(format.0);
+
+    if handle.is_null() {
+        Err(HRESULT::from_thread().into())
+    } else {
+        Ok(std::mem::transmute::<_, *const T>(handle))
     }
 }
 

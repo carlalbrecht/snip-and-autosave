@@ -1,29 +1,35 @@
 fn main() {
     windows::build! {
-        Windows::Win32::Foundation::{
-            CloseHandle,
-            HANDLE,
-            HINSTANCE,
-            HWND,
-            PSTR,
-            WPARAM,
-            LPARAM,
-            LRESULT
-        },
-        Windows::Win32::System::{
-            DataExchange::{
-                AddClipboardFormatListener,
-                GetClipboardOwner,
-                GetPriorityClipboardFormat
+        Windows::Win32::{
+            Foundation::{
+                CloseHandle,
+                HANDLE,
+                HINSTANCE,
+                HWND,
+                PSTR,
+                WPARAM,
+                LPARAM,
+                LRESULT
             },
-            LibraryLoader::GetModuleHandleA,
-            Threading::{
-                OpenProcess,
-                PROCESS_ACCESS_RIGHTS
+            System::{
+                DataExchange::{
+                    AddClipboardFormatListener,
+                    GetClipboardData,
+                    GetClipboardOwner,
+                    GetPriorityClipboardFormat,
+                    OpenClipboard,
+                    CloseClipboard
+                },
+                LibraryLoader::GetModuleHandleA,
+                Threading::{
+                    OpenProcess,
+                    PROCESS_ACCESS_RIGHTS
+                },
+                ProcessStatus::K32GetProcessImageFileNameA,
+                SystemServices::CLIPBOARD_FORMATS
             },
-            ProcessStatus::K32GetProcessImageFileNameA,
-            SystemServices::CLIPBOARD_FORMATS
-        },
-        Windows::Win32::UI::WindowsAndMessaging::*
+            Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER},
+            UI::WindowsAndMessaging::*
+        }
     };
 }

@@ -1,17 +1,25 @@
+use crate::convert::dib_to_image;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::windows::{
-    add_clipboard_listener, create_window, create_window_class, get_instance, message_loop,
+    add_clipboard_listener, create_window, create_window_class, get_clipboard_data, get_instance,
+    message_loop, open_clipboard,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+    Graphics::Gdi::BITMAPINFO,
+    System::SystemServices::CF_DIB,
     UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE},
 };
+use image::ImageFormat;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Mutex;
+use std::thread;
 use std::time::{Duration, Instant};
 use win32_notification::NotificationBuilder;
 
+mod convert;
 mod heuristics;
 mod windows;
 
@@ -54,18 +62,35 @@ unsafe extern "system" fn window_proc(
 ) -> LRESULT {
     match message {
         WM_CLIPBOARDUPDATE => {
+            println!("WM_CLIPBOARDUPDATE message received");
+
             if debounce_message(WM_CLIPBOARDUPDATE) {
                 println!("WM_CLIPBOARDUPDATE debounced - message ignored");
                 return LRESULT(0);
             }
-
-            println!("Clipboard updated");
 
             if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
                 println!("Heuristics failed: {:#?}", e);
                 false
             }) {
                 println!("Clipboard is owned by Snip & Sketch - saving screenshot to disk");
+
+                // Give the Snip & Sketch screenshot overlay a chance to
+                // disappear before we block the clipboard to copy image data
+                thread::sleep(Duration::from_millis(100));
+
+                let image = {
+                    let _clipboard = open_clipboard(Some(window)).unwrap();
+                    let bitmap = get_clipboard_data::<BITMAPINFO>(CF_DIB).unwrap();
+
+                    dib_to_image(bitmap).unwrap()
+                };
+
+                thread::spawn(move || {
+                    image
+                        .save_with_format(Path::new("./lmao.png"), ImageFormat::Png)
+                        .unwrap()
+                });
             } else {
                 println!("Clipboard not owned by Snip & Sketch");
             }

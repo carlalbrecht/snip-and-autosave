@@ -9,3 +9,4 @@ bindings = { path = "bindings" }
 windows = "0.18"
 win32_notification = "0.1"
 lazy_static = "1.4"
+image = { version = "0.23", default-features = false, features = ["png"] }
