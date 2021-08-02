@@ -28,7 +28,7 @@ fn main() {
                 ProcessStatus::K32GetProcessImageFileNameA,
                 SystemServices::CLIPBOARD_FORMATS
             },
-            Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER},
+            Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER, BI_BITFIELDS},
             UI::WindowsAndMessaging::*
         }
     };

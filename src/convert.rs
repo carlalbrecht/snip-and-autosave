@@ -1,5 +1,16 @@
-use bindings::Windows::Win32::Graphics::Gdi::BITMAPINFO;
+use bindings::Windows::Win32::Graphics::Gdi::{BITMAPINFO, BI_BITFIELDS};
 use image::{Pixel, Rgb, RgbImage};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ConversionError {
+    #[error("Image data pointer is null")]
+    NullPointer,
+    #[error("Image uses unsupported compression format {0}")]
+    UnsupportedCompressionFormat(u32),
+    #[error("Image has an unsupported bit depth of {0}-bits")]
+    UnsupportedBitDepth(u16),
+}
 
 unsafe fn subpixel_ordering(color_masks: *const u32) -> (u32, u32, u32) {
     let red_mask = *color_masks;
@@ -14,18 +25,23 @@ unsafe fn subpixel_ordering(color_masks: *const u32) -> (u32, u32, u32) {
     )
 }
 
-pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, String> {
+pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, ConversionError> {
     unsafe {
         if dib_image.is_null() {
-            return Err("Image is null".to_string());
+            return Err(ConversionError::NullPointer);
         }
 
-        if (*dib_image).bmiHeader.biCompression != 3 {
-            return Err("Unsupported compression format".to_string());
+        let compression_format = (*dib_image).bmiHeader.biCompression;
+        let bit_depth = (*dib_image).bmiHeader.biBitCount;
+
+        if compression_format != BI_BITFIELDS as u32 {
+            return Err(ConversionError::UnsupportedCompressionFormat(
+                compression_format,
+            ));
         }
 
-        if (*dib_image).bmiHeader.biBitCount != 32 {
-            return Err("Unsupported bit depth".to_string());
+        if bit_depth != 32 {
+            return Err(ConversionError::UnsupportedBitDepth(bit_depth));
         }
 
         let width = (*dib_image).bmiHeader.biWidth.abs() as u32;
