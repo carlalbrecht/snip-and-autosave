@@ -27,7 +27,7 @@ mod settings;
 mod windows;
 
 fn debounce_message(message: u32) -> bool {
-    const DEBOUNCE_TIME: Duration = Duration::from_millis(500);
+    const DEBOUNCE_TIME: Duration = Duration::from_millis(1000);
 
     lazy_static! {
         static ref MESSAGE_TIMES: Mutex<HashMap<u32, Instant>> = Mutex::new(HashMap::new());
@@ -62,7 +62,6 @@ fn generate_output_path() -> PathBuf {
 
     let now = Local::now();
 
-    // TODO handle multiple screenshots taken within the same second
     screenshot_path
         .join(format!(
             "Screenshot_{}",
@@ -85,9 +84,7 @@ unsafe extern "system" fn window_proc(
             if debounce_message(WM_CLIPBOARDUPDATE) {
                 println!("WM_CLIPBOARDUPDATE debounced - message ignored");
                 return LRESULT(0);
-            }
-
-            if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
+            } else if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
                 println!("Heuristics failed: {:#?}", e);
                 false
             }) {
@@ -107,7 +104,7 @@ unsafe extern "system" fn window_proc(
                 thread::spawn(move || {
                     image
                         .save_with_format(generate_output_path(), ImageFormat::Png)
-                        .unwrap()
+                        .unwrap();
                 });
             } else {
                 println!("Clipboard not owned by Snip & Sketch");
