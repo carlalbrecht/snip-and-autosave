@@ -1,5 +1,6 @@
 use crate::convert::dib_to_image;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
+use crate::settings::Settings;
 use crate::windows::{
     add_clipboard_listener, create_window, create_window_class, get_clipboard_data, get_instance,
     message_loop, open_clipboard,
@@ -10,10 +11,11 @@ use bindings::Windows::Win32::{
     System::SystemServices::CF_DIB,
     UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE},
 };
+use chrono::Local;
 use image::ImageFormat;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -21,6 +23,7 @@ use win32_notification::NotificationBuilder;
 
 mod convert;
 mod heuristics;
+mod settings;
 mod windows;
 
 fn debounce_message(message: u32) -> bool {
@@ -51,6 +54,21 @@ fn show_screenshot_saved_notification(info_text: Option<&str>) {
         .expect("Could not create notification");
 
     notification.show().expect("Failed to show notification");
+}
+
+fn generate_output_path() -> PathBuf {
+    let mut screenshot_path = PathBuf::new();
+    Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
+
+    let now = Local::now();
+
+    // TODO handle multiple screenshots taken within the same second
+    screenshot_path
+        .join(format!(
+            "Screenshot_{}",
+            now.format("%Y%m%d_%H%M%S").to_string()
+        ))
+        .with_extension("png")
 }
 
 // noinspection RsUnreachablePatterns
@@ -88,7 +106,7 @@ unsafe extern "system" fn window_proc(
 
                 thread::spawn(move || {
                     image
-                        .save_with_format(Path::new("./lmao.png"), ImageFormat::Png)
+                        .save_with_format(generate_output_path(), ImageFormat::Png)
                         .unwrap()
                 });
             } else {
