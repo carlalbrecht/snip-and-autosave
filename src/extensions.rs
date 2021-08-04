@@ -1,8 +1,10 @@
 use crate::settings::Settings;
 use image::codecs::png::PngDecoder;
 use image::{ColorType, DynamicImage, ImageDecoder, RgbImage};
+use rayon::prelude::*;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use std::{fs, io};
 
@@ -52,13 +54,21 @@ fn image_content_is_equal(image_a: &RgbImage, image_b: &RgbImage) -> bool {
         return false;
     }
 
-    for (a, b) in image_a.enumerate_pixels().zip(image_b.enumerate_pixels()) {
-        if a != b {
-            return false;
-        }
-    }
+    let result = AtomicBool::new(true);
 
-    true
+    image_a
+        .rows()
+        .zip(image_b.rows())
+        .par_bridge()
+        .for_each(|(row_a, row_b)| {
+            for (a, b) in row_a.zip(row_b) {
+                if a != b {
+                    result.store(false, Ordering::Relaxed);
+                }
+            }
+        });
+
+    result.into_inner()
 }
 
 fn newest_file_in_dir(dir: &Path) -> io::Result<Option<PathBuf>> {
