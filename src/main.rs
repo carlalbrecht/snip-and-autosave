@@ -1,4 +1,5 @@
 use crate::convert::dib_to_image;
+use crate::extensions::ImageExtensions;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::settings::Settings;
 use crate::windows::{
@@ -22,6 +23,7 @@ use std::time::{Duration, Instant};
 use win32_notification::NotificationBuilder;
 
 mod convert;
+mod extensions;
 mod heuristics;
 mod settings;
 mod windows;
@@ -70,6 +72,46 @@ fn generate_output_path() -> PathBuf {
         .with_extension("png")
 }
 
+fn handle_clipboard_update(window: HWND) -> LRESULT {
+    println!("WM_CLIPBOARDUPDATE message received");
+
+    if debounce_message(WM_CLIPBOARDUPDATE) {
+        println!("WM_CLIPBOARDUPDATE debounced - message ignored");
+        return LRESULT(0);
+    } else if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
+        println!("Heuristics failed: {:#?}", e);
+        false
+    }) {
+        println!("Clipboard is owned by Snip & Sketch - saving screenshot to disk");
+
+        // Give the Snip & Sketch screenshot overlay a chance to
+        // disappear before we block the clipboard to copy image data
+        thread::sleep(Duration::from_millis(100));
+
+        let image = {
+            let _clipboard = open_clipboard(Some(window)).unwrap();
+            let bitmap = unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB).unwrap() };
+
+            dib_to_image(bitmap).unwrap()
+        };
+
+        thread::spawn(move || {
+            if image.is_same_as_last_screenshot() {
+                println!("Screenshot is the same as the last saved image - ignoring");
+                return;
+            }
+
+            image
+                .save_with_format(generate_output_path(), ImageFormat::Png)
+                .unwrap();
+        });
+    } else {
+        println!("Clipboard not owned by Snip & Sketch");
+    }
+
+    LRESULT(0)
+}
+
 // noinspection RsUnreachablePatterns
 unsafe extern "system" fn window_proc(
     window: HWND,
@@ -78,40 +120,7 @@ unsafe extern "system" fn window_proc(
     l_param: LPARAM,
 ) -> LRESULT {
     match message {
-        WM_CLIPBOARDUPDATE => {
-            println!("WM_CLIPBOARDUPDATE message received");
-
-            if debounce_message(WM_CLIPBOARDUPDATE) {
-                println!("WM_CLIPBOARDUPDATE debounced - message ignored");
-                return LRESULT(0);
-            } else if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
-                println!("Heuristics failed: {:#?}", e);
-                false
-            }) {
-                println!("Clipboard is owned by Snip & Sketch - saving screenshot to disk");
-
-                // Give the Snip & Sketch screenshot overlay a chance to
-                // disappear before we block the clipboard to copy image data
-                thread::sleep(Duration::from_millis(100));
-
-                let image = {
-                    let _clipboard = open_clipboard(Some(window)).unwrap();
-                    let bitmap = get_clipboard_data::<BITMAPINFO>(CF_DIB).unwrap();
-
-                    dib_to_image(bitmap).unwrap()
-                };
-
-                thread::spawn(move || {
-                    image
-                        .save_with_format(generate_output_path(), ImageFormat::Png)
-                        .unwrap();
-                });
-            } else {
-                println!("Clipboard not owned by Snip & Sketch");
-            }
-
-            LRESULT(0)
-        }
+        WM_CLIPBOARDUPDATE => handle_clipboard_update(window),
         _ => DefWindowProcA(window, message, w_param, l_param),
     }
 }
