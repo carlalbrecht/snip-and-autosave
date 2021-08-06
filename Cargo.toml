@@ -16,6 +16,13 @@ toml = "0.5"
 chrono = "0.4"
 rayon = "1.5"
 
+[build-dependencies]
+winres = "0.1"
+resvg = "0.15"
+usvg = "0.15"
+tiny-skia = "0.5"
+ico = "0.1"
+
 [profile.release]
 # Stolen from https://deterministic.space/high-performance-rust.html
 lto = "fat"
