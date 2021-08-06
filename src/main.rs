@@ -4,12 +4,15 @@ use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::notification_area::WMAPP_NOTIFYCALLBACK;
 use crate::settings::Settings;
 use crate::windows::{
-    add_clipboard_listener, create_window, create_window_class, find_window, get_clipboard_dib,
-    get_instance, message_loop, open_clipboard, post_quit_message, CLASS_NAME, WINDOW_NAME,
+    add_clipboard_listener, create_window, create_window_class, destroy_window, find_window,
+    get_clipboard_dib, get_instance, message_loop, open_clipboard, post_quit_message, CLASS_NAME,
+    WINDOW_NAME,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-    UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE, WM_CLOSE, WM_CREATE},
+    UI::WindowsAndMessaging::{
+        DefWindowProcA, WM_CLIPBOARDUPDATE, WM_CLOSE, WM_COMMAND, WM_CREATE, WM_DESTROY,
+    },
 };
 use chrono::Local;
 use image::ImageFormat;
@@ -67,10 +70,29 @@ fn on_create(window: HWND) -> LRESULT {
     LRESULT(0)
 }
 
-fn on_close(_window: HWND) {
+fn on_close(window: HWND) -> LRESULT {
     notification_area::remove_icon();
+    destroy_window(window);
 
+    LRESULT(0)
+}
+
+fn on_destroy() -> LRESULT {
     post_quit_message(0);
+
+    LRESULT(0)
+}
+
+fn on_command(window: HWND, message: u32, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
+    let command = w_param.0 & 0xFFFF;
+
+    for command_proc in &[notification_area::on_command] {
+        if let Some(result) = command_proc(window, command) {
+            return result;
+        }
+    }
+
+    unsafe { DefWindowProcA(window, message, w_param, l_param) }
 }
 
 fn on_clipboard_update(window: HWND) -> LRESULT {
@@ -124,12 +146,11 @@ unsafe extern "system" fn window_proc(
 ) -> LRESULT {
     match message {
         WM_CREATE => on_create(window),
+        WM_COMMAND => on_command(window, message, w_param, l_param),
         WM_CLIPBOARDUPDATE => on_clipboard_update(window),
         WMAPP_NOTIFYCALLBACK => notification_area::notify_callback(window, w_param, l_param),
-        WM_CLOSE => {
-            on_close(window);
-            DefWindowProcA(window, message, w_param, l_param)
-        }
+        WM_CLOSE => on_close(window),
+        WM_DESTROY => on_destroy(),
         _ => DefWindowProcA(window, message, w_param, l_param),
     }
 }
@@ -150,7 +171,7 @@ fn main() -> ::windows::Result<()> {
     add_clipboard_listener(window)?;
 
     // Await clipboard messages indefinitely
-    message_loop(window);
+    message_loop(HWND(0));
 
     Ok(())
 }

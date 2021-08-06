@@ -1,4 +1,4 @@
-use crate::windows::{get_instance, load_menu};
+use crate::windows::{get_instance, load_menu, send_notify_message};
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, PSTR, WPARAM},
     System::SystemServices::CHAR,
@@ -11,7 +11,7 @@ use bindings::Windows::Win32::{
         },
         WindowsAndMessaging::{
             GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx, HICON,
-            SM_MENUDROPALIGNMENT, TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP,
+            SM_MENUDROPALIGNMENT, TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_CLOSE,
         },
     },
 };
@@ -32,6 +32,10 @@ const ICON_GUID: Guid = Guid::from_values(
     0x463b,
     [0x80, 0x4e, 0xaf, 0x47, 0xdc, 0xab, 0xc4, 0x5a],
 );
+
+const IDM_EXIT: usize = 121;
+const IDM_SET_LOCATION: usize = 122;
+const IDM_OPEN_LOCATION: usize = 123;
 
 pub const WMAPP_NOTIFYCALLBACK: u32 = WM_APP + 1;
 
@@ -90,6 +94,16 @@ pub fn notify_callback(window: HWND, w_param: WPARAM, l_param: LPARAM) -> LRESUL
             LRESULT(0)
         }
         _ => LRESULT(0),
+    }
+}
+
+pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
+    match command {
+        IDM_EXIT => {
+            send_notify_message(window, WM_CLOSE, WPARAM(0), LPARAM(0)).unwrap();
+            Some(LRESULT(0))
+        }
+        _ => None,
     }
 }
 

@@ -1,5 +1,5 @@
 use bindings::Windows::Win32::{
-    Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, PSTR},
+    Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, LPARAM, PSTR, WPARAM},
     Graphics::Gdi::BITMAPINFO,
     System::{
         DataExchange::{
@@ -12,9 +12,10 @@ use bindings::Windows::Win32::{
         Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
     },
     UI::WindowsAndMessaging::{
-        CreateWindowExA, DestroyMenu, DispatchMessageA, FindWindowA, GetMessageA,
-        GetWindowThreadProcessId, LoadMenuA, PostQuitMessage, RegisterClassA, TranslateMessage,
-        CW_USEDEFAULT, HMENU, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA, WNDPROC,
+        CreateWindowExA, DestroyMenu, DestroyWindow, DispatchMessageA, FindWindowA, GetMessageA,
+        GetWindowThreadProcessId, LoadMenuA, PostQuitMessage, RegisterClassA, SendNotifyMessageA,
+        TranslateMessage, CW_USEDEFAULT, HMENU, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA,
+        WNDPROC,
     },
 };
 use core::ptr;
@@ -123,6 +124,12 @@ pub fn create_window(
     }
 }
 
+pub fn destroy_window(window: HWND) {
+    unsafe {
+        DestroyWindow(window);
+    }
+}
+
 pub fn find_window(class_name: &str, window_name: &str) -> Option<HWND> {
     let window = unsafe { FindWindowA(class_name, window_name) };
 
@@ -130,6 +137,19 @@ pub fn find_window(class_name: &str, window_name: &str) -> Option<HWND> {
         None
     } else {
         Some(window)
+    }
+}
+
+pub fn send_notify_message(
+    window: HWND,
+    message: u32,
+    w_param: WPARAM,
+    l_param: LPARAM,
+) -> windows::Result<()> {
+    if unsafe { SendNotifyMessageA(window, message, w_param, l_param).0 != 0 } {
+        Ok(())
+    } else {
+        Err(HRESULT::from_thread().into())
     }
 }
 
