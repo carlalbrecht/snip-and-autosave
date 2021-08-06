@@ -2,6 +2,7 @@ use bindings::Windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, LPARAM, PSTR, WPARAM},
     Graphics::Gdi::BITMAPINFO,
     System::{
+        Console::AttachConsole,
         DataExchange::{
             AddClipboardFormatListener, CloseClipboard, GetClipboardData,
             GetPriorityClipboardFormat, OpenClipboard,
@@ -58,6 +59,12 @@ where
     fn drop(&mut self) {
         (self.close_fn)(self.value);
     }
+}
+
+pub fn attach_console() -> bool {
+    const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF;
+
+    unsafe { AttachConsole(ATTACH_PARENT_PROCESS).0 != 0 }
 }
 
 pub fn get_instance() -> windows::Result<HINSTANCE> {

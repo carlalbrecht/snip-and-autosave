@@ -1,12 +1,14 @@
+#![windows_subsystem = "windows"]
+
 use crate::convert::dib_to_image;
 use crate::extensions::ImageExtensions;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::notification_area::WMAPP_NOTIFYCALLBACK;
 use crate::settings::Settings;
 use crate::windows::{
-    add_clipboard_listener, create_window, create_window_class, destroy_window, find_window,
-    get_clipboard_dib, get_instance, message_loop, open_clipboard, post_quit_message, CLASS_NAME,
-    WINDOW_NAME,
+    add_clipboard_listener, attach_console, create_window, create_window_class, destroy_window,
+    find_window, get_clipboard_dib, get_instance, message_loop, open_clipboard, post_quit_message,
+    CLASS_NAME, WINDOW_NAME,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
@@ -156,6 +158,8 @@ unsafe extern "system" fn window_proc(
 }
 
 fn main() -> ::windows::Result<()> {
+    attach_console();
+
     // Only allow one instance of the program to run at a time
     if find_window(CLASS_NAME, WINDOW_NAME).is_some() {
         println!("Only one instance of this program can run at a time");

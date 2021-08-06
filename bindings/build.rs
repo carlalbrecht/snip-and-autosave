@@ -12,6 +12,7 @@ fn main() {
                 LRESULT
             },
             System::{
+                Console::AttachConsole,
                 DataExchange::{
                     AddClipboardFormatListener,
                     GetClipboardData,
