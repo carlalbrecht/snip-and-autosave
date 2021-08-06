@@ -67,13 +67,13 @@ fn generate_output_path() -> PathBuf {
 }
 
 fn on_create(window: HWND) -> LRESULT {
-    notification_area::create_icon(window);
+    notification_area::create_icon(window).unwrap();
 
     LRESULT(0)
 }
 
 fn on_close(window: HWND) -> LRESULT {
-    notification_area::remove_icon();
+    notification_area::remove_icon().unwrap();
     destroy_window(window);
 
     LRESULT(0)
