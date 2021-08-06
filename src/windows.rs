@@ -1,5 +1,6 @@
 use bindings::Windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, PSTR},
+    Graphics::Gdi::BITMAPINFO,
     System::{
         DataExchange::{
             AddClipboardFormatListener, CloseClipboard, GetClipboardData,
@@ -7,12 +8,13 @@ use bindings::Windows::Win32::{
         },
         LibraryLoader::GetModuleHandleA,
         ProcessStatus::K32GetProcessImageFileNameA,
-        SystemServices::CLIPBOARD_FORMATS,
+        SystemServices::{CF_DIB, CLIPBOARD_FORMATS},
         Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
     },
     UI::WindowsAndMessaging::{
-        CreateWindowExA, DispatchMessageA, GetMessageA, GetWindowThreadProcessId, RegisterClassA,
-        TranslateMessage, CW_USEDEFAULT, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA, WNDPROC,
+        CreateWindowExA, DispatchMessageA, FindWindowA, GetMessageA, GetWindowThreadProcessId,
+        RegisterClassA, TranslateMessage, CW_USEDEFAULT, MSG, WINDOW_EX_STYLE, WINDOW_STYLE,
+        WNDCLASSA, WNDPROC,
     },
 };
 use core::ptr;
@@ -20,6 +22,9 @@ use std::ffi::CString;
 use std::thread;
 use std::time::Duration;
 use windows::HRESULT;
+
+pub const CLASS_NAME: &str = "SnASWindow";
+pub const WINDOW_NAME: &str = "Snip & AutoSave";
 
 pub struct AutoClose<T>
 where
@@ -68,10 +73,11 @@ pub fn get_instance() -> windows::Result<HINSTANCE> {
 
 pub fn create_window_class(
     instance: HINSTANCE,
+    class_name: &str,
     window_proc: Option<WNDPROC>,
 ) -> windows::Result<CString> {
     unsafe {
-        let class_name = CString::new("Window").expect("CString::new failed");
+        let class_name = CString::new(class_name).expect("CString::new failed");
 
         let atom = RegisterClassA(&WNDCLASSA {
             lpfnWndProc: window_proc,
@@ -88,12 +94,16 @@ pub fn create_window_class(
     }
 }
 
-pub fn create_window(instance: HINSTANCE, class: &CString) -> windows::Result<HWND> {
+pub fn create_window(
+    instance: HINSTANCE,
+    class: &CString,
+    window_name: &str,
+) -> windows::Result<HWND> {
     unsafe {
         let window = CreateWindowExA(
             WINDOW_EX_STYLE(0),
             PSTR(class.as_ptr() as *mut u8),
-            "Snip & AutoSave",
+            window_name,
             WINDOW_STYLE(0),
             CW_USEDEFAULT,
             CW_USEDEFAULT,
@@ -110,6 +120,16 @@ pub fn create_window(instance: HINSTANCE, class: &CString) -> windows::Result<HW
         } else {
             Ok(window)
         }
+    }
+}
+
+pub fn find_window(class_name: &str, window_name: &str) -> Option<HWND> {
+    let window = unsafe { FindWindowA(class_name, window_name) };
+
+    if window.is_null() {
+        None
+    } else {
+        Some(window)
     }
 }
 
@@ -216,6 +236,10 @@ pub unsafe fn get_clipboard_data<T>(format: CLIPBOARD_FORMATS) -> windows::Resul
     } else {
         Ok(std::mem::transmute::<_, *const T>(handle))
     }
+}
+
+pub fn get_clipboard_dib() -> windows::Result<*const BITMAPINFO> {
+    unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB) }
 }
 
 pub fn message_loop(window: HWND) {

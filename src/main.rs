@@ -3,13 +3,11 @@ use crate::extensions::ImageExtensions;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::settings::Settings;
 use crate::windows::{
-    add_clipboard_listener, create_window, create_window_class, get_clipboard_data, get_instance,
-    message_loop, open_clipboard,
+    add_clipboard_listener, create_window, create_window_class, find_window, get_clipboard_dib,
+    get_instance, message_loop, open_clipboard, CLASS_NAME, WINDOW_NAME,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-    Graphics::Gdi::BITMAPINFO,
-    System::SystemServices::CF_DIB,
     UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE},
 };
 use chrono::Local;
@@ -20,7 +18,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
-use win32_notification::NotificationBuilder;
 
 mod convert;
 mod extensions;
@@ -48,16 +45,6 @@ fn debounce_message(message: u32) -> bool {
     result
 }
 
-fn show_screenshot_saved_notification(info_text: Option<&str>) {
-    let notification = NotificationBuilder::new()
-        .title_text("Screenshot saved")
-        .info_text(info_text.unwrap_or("lmao xd"))
-        .build()
-        .expect("Could not create notification");
-
-    notification.show().expect("Failed to show notification");
-}
-
 fn generate_output_path() -> PathBuf {
     let mut screenshot_path = PathBuf::new();
     Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
@@ -73,7 +60,7 @@ fn generate_output_path() -> PathBuf {
 }
 
 fn handle_clipboard_update(window: HWND) -> LRESULT {
-    println!("WM_CLIPBOARDUPDATE message received");
+    println!("\nWM_CLIPBOARDUPDATE message received");
 
     if debounce_message(WM_CLIPBOARDUPDATE) {
         println!("WM_CLIPBOARDUPDATE debounced - message ignored");
@@ -88,9 +75,10 @@ fn handle_clipboard_update(window: HWND) -> LRESULT {
         // disappear before we block the clipboard to copy image data
         thread::sleep(Duration::from_millis(100));
 
+        // TODO: don't unwrap here
         let image = {
             let _clipboard = open_clipboard(Some(window)).unwrap();
-            let bitmap = unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB).unwrap() };
+            let bitmap = get_clipboard_dib().unwrap();
 
             dib_to_image(bitmap).unwrap()
         };
@@ -112,6 +100,7 @@ fn handle_clipboard_update(window: HWND) -> LRESULT {
     LRESULT(0)
 }
 
+// noinspection RsLiveness
 // noinspection RsUnreachablePatterns
 unsafe extern "system" fn window_proc(
     window: HWND,
@@ -126,10 +115,16 @@ unsafe extern "system" fn window_proc(
 }
 
 fn main() -> ::windows::Result<()> {
+    // Only allow one instance of the program to run at a time
+    if find_window(CLASS_NAME, WINDOW_NAME).is_some() {
+        println!("Only one instance of this program can run at a time");
+        return Ok(());
+    }
+
     // Create a hidden window, so we can receive clipboard messages
     let instance = get_instance()?;
-    let class = create_window_class(instance, Some(window_proc))?;
-    let window = create_window(instance, &class)?;
+    let class = create_window_class(instance, CLASS_NAME, Some(window_proc))?;
+    let window = create_window(instance, &class, WINDOW_NAME)?;
 
     // Register our hidden window as a clipboard listener
     add_clipboard_listener(window)?;

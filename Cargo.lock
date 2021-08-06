@@ -396,7 +396,6 @@ dependencies = [
  "serde",
  "thiserror",
  "toml",
- "win32_notification",
  "windows",
 ]
 
@@ -461,15 +460,6 @@ name = "wasi"
 version = "0.10.2+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
-
-[[package]]
-name = "win32_notification"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "364cdb51ad77d274630365572788fd9653312eb271cf11735b995f4d672271ee"
-dependencies = [
- "winapi",
-]
 
 [[package]]
 name = "winapi"

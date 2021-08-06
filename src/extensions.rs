@@ -23,6 +23,7 @@ impl ImageExtensions for RgbImage {
                 newest_file.to_string_lossy()
             );
 
+            // TODO clean this up :(
             if let Ok(file) = File::open(newest_file) {
                 if let Ok(decoder) = PngDecoder::new(file) {
                     // Fail-fast if the image isn't comparable to our new screenshot
@@ -61,6 +62,11 @@ fn image_content_is_equal(image_a: &RgbImage, image_b: &RgbImage) -> bool {
         .zip(image_b.rows())
         .par_bridge()
         .for_each(|(row_a, row_b)| {
+            if !result.load(Ordering::Relaxed) {
+                // Skip processing rows once we know that the images aren't equal
+                return;
+            }
+
             for (a, b) in row_a.zip(row_b) {
                 if a != b {
                     result.store(false, Ordering::Relaxed);
