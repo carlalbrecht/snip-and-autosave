@@ -68,8 +68,8 @@ fn compile_windows_resources(icon_path: &Path) {
 
 fn compile_windows_manifest() {
     // Tell Cargo to rerun the build script whenever the manifest is modified
-    println!("cargo:rerun-if-changed=snip-and-autosave-manifest.rc");
-    println!("cargo:rerun-if-changed=snip-and-autosave.exe.manifest");
+    println!("cargo:rerun-if-changed=resources/resources.rc");
+    println!("cargo:rerun-if-changed=resources/snip-and-autosave.exe.manifest");
 
-    embed_resource::compile("snip-and-autosave-manifest.rc");
+    embed_resource::compile("resources/resources.rc");
 }

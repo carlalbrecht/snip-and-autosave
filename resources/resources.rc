@@ -1,0 +1,20 @@
+#define RT_MANIFEST 24
+
+#define IDM_EXIT 121
+#define IDM_SET_LOCATION 122
+#define IDM_OPEN_LOCATION 123
+
+#define IDC_CONTEXTMENU 200
+
+1 RT_MANIFEST "snip-and-autosave.exe.manifest"
+
+IDC_CONTEXTMENU MENU
+BEGIN
+    POPUP ""
+    BEGIN
+        MENUITEM "Set Screenshot Storage Location...", IDM_SET_LOCATION
+        MENUITEM "Open Screenshot Folder", IDM_OPEN_LOCATION
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", IDM_EXIT
+    END
+END

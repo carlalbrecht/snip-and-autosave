@@ -29,7 +29,6 @@ fn main() {
                 SystemServices::{CLIPBOARD_FORMATS, CHAR}
             },
             Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER, BI_BITFIELDS},
-            UI::Controls::LoadIconMetric,
             UI::Shell::{
                 Shell_NotifyIconA,
                 NOTIFYICONDATAA,
@@ -37,6 +36,7 @@ fn main() {
                 NOTIFYICON_VERSION_4,
                 NOTIFY_ICON_MESSAGE
             },
+            UI::Controls::*,
             UI::WindowsAndMessaging::*
         }
     };

@@ -12,16 +12,16 @@ use bindings::Windows::Win32::{
         Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
     },
     UI::WindowsAndMessaging::{
-        CreateWindowExA, DispatchMessageA, FindWindowA, GetMessageA, GetWindowThreadProcessId,
-        PostQuitMessage, RegisterClassA, TranslateMessage, CW_USEDEFAULT, MSG, WINDOW_EX_STYLE,
-        WINDOW_STYLE, WNDCLASSA, WNDPROC,
+        CreateWindowExA, DestroyMenu, DispatchMessageA, FindWindowA, GetMessageA,
+        GetWindowThreadProcessId, LoadMenuA, PostQuitMessage, RegisterClassA, TranslateMessage,
+        CW_USEDEFAULT, HMENU, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA, WNDPROC,
     },
 };
 use core::ptr;
 use std::ffi::CString;
 use std::time::Duration;
 use std::{mem, thread};
-use windows::HRESULT;
+use windows::{IntoParam, HRESULT};
 
 pub const CLASS_NAME: &str = "SnASWindow";
 pub const WINDOW_NAME: &str = "Snip & AutoSave";
@@ -240,6 +240,17 @@ pub unsafe fn get_clipboard_data<T>(format: CLIPBOARD_FORMATS) -> windows::Resul
 
 pub fn get_clipboard_dib() -> windows::Result<*const BITMAPINFO> {
     unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB) }
+}
+
+pub unsafe fn load_menu<'a>(
+    instance: HINSTANCE,
+    menu_name: impl IntoParam<'a, PSTR>,
+) -> AutoClose<HMENU> {
+    let menu = LoadMenuA(instance, menu_name);
+
+    AutoClose::new(menu, |m| {
+        DestroyMenu(m);
+    })
 }
 
 pub fn post_quit_message(exit_code: i32) {

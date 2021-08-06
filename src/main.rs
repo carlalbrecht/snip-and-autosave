@@ -1,6 +1,7 @@
 use crate::convert::dib_to_image;
 use crate::extensions::ImageExtensions;
 use crate::heuristics::clipboard_owned_by_snip_and_sketch;
+use crate::notification_area::WMAPP_NOTIFYCALLBACK;
 use crate::settings::Settings;
 use crate::windows::{
     add_clipboard_listener, create_window, create_window_class, find_window, get_clipboard_dib,
@@ -66,8 +67,8 @@ fn on_create(window: HWND) -> LRESULT {
     LRESULT(0)
 }
 
-fn on_close(window: HWND) {
-    notification_area::remove_icon(window);
+fn on_close(_window: HWND) {
+    notification_area::remove_icon();
 
     post_quit_message(0);
 }
@@ -124,6 +125,7 @@ unsafe extern "system" fn window_proc(
     match message {
         WM_CREATE => on_create(window),
         WM_CLIPBOARDUPDATE => on_clipboard_update(window),
+        WMAPP_NOTIFYCALLBACK => notification_area::notify_callback(window, w_param, l_param),
         WM_CLOSE => {
             on_close(window);
             DefWindowProcA(window, message, w_param, l_param)
