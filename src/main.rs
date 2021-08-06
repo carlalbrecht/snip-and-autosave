@@ -4,11 +4,11 @@ use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::settings::Settings;
 use crate::windows::{
     add_clipboard_listener, create_window, create_window_class, find_window, get_clipboard_dib,
-    get_instance, message_loop, open_clipboard, CLASS_NAME, WINDOW_NAME,
+    get_instance, message_loop, open_clipboard, post_quit_message, CLASS_NAME, WINDOW_NAME,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
-    UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE},
+    UI::WindowsAndMessaging::{DefWindowProcA, WM_CLIPBOARDUPDATE, WM_CLOSE, WM_CREATE},
 };
 use chrono::Local;
 use image::ImageFormat;
@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 mod convert;
 mod extensions;
 mod heuristics;
+mod notification_area;
 mod settings;
 mod windows;
 
@@ -59,7 +60,19 @@ fn generate_output_path() -> PathBuf {
         .with_extension("png")
 }
 
-fn handle_clipboard_update(window: HWND) -> LRESULT {
+fn on_create(window: HWND) -> LRESULT {
+    notification_area::create_icon(window);
+
+    LRESULT(0)
+}
+
+fn on_close(window: HWND) {
+    notification_area::remove_icon(window);
+
+    post_quit_message(0);
+}
+
+fn on_clipboard_update(window: HWND) -> LRESULT {
     println!("\nWM_CLIPBOARDUPDATE message received");
 
     if debounce_message(WM_CLIPBOARDUPDATE) {
@@ -109,7 +122,12 @@ unsafe extern "system" fn window_proc(
     l_param: LPARAM,
 ) -> LRESULT {
     match message {
-        WM_CLIPBOARDUPDATE => handle_clipboard_update(window),
+        WM_CREATE => on_create(window),
+        WM_CLIPBOARDUPDATE => on_clipboard_update(window),
+        WM_CLOSE => {
+            on_close(window);
+            DefWindowProcA(window, message, w_param, l_param)
+        }
         _ => DefWindowProcA(window, message, w_param, l_param),
     }
 }

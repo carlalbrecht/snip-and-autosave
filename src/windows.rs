@@ -13,14 +13,14 @@ use bindings::Windows::Win32::{
     },
     UI::WindowsAndMessaging::{
         CreateWindowExA, DispatchMessageA, FindWindowA, GetMessageA, GetWindowThreadProcessId,
-        RegisterClassA, TranslateMessage, CW_USEDEFAULT, MSG, WINDOW_EX_STYLE, WINDOW_STYLE,
-        WNDCLASSA, WNDPROC,
+        PostQuitMessage, RegisterClassA, TranslateMessage, CW_USEDEFAULT, MSG, WINDOW_EX_STYLE,
+        WINDOW_STYLE, WNDCLASSA, WNDPROC,
     },
 };
 use core::ptr;
 use std::ffi::CString;
-use std::thread;
 use std::time::Duration;
+use std::{mem, thread};
 use windows::HRESULT;
 
 pub const CLASS_NAME: &str = "SnASWindow";
@@ -234,12 +234,16 @@ pub unsafe fn get_clipboard_data<T>(format: CLIPBOARD_FORMATS) -> windows::Resul
     if handle.is_null() {
         Err(HRESULT::from_thread().into())
     } else {
-        Ok(std::mem::transmute::<_, *const T>(handle))
+        Ok(mem::transmute::<_, *const T>(handle))
     }
 }
 
 pub fn get_clipboard_dib() -> windows::Result<*const BITMAPINFO> {
     unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB) }
+}
+
+pub fn post_quit_message(exit_code: i32) {
+    unsafe { PostQuitMessage(exit_code) };
 }
 
 pub fn message_loop(window: HWND) {

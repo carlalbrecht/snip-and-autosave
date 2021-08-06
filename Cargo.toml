@@ -17,6 +17,7 @@ chrono = "0.4"
 rayon = "1.5"
 
 [build-dependencies]
+embed-resource = "1.6"
 winres = "0.1"
 resvg = "0.15"
 usvg = "0.15"

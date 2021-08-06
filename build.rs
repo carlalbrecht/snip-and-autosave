@@ -14,6 +14,7 @@ fn main() {
     let icon_path = generate_icon(Path::new("resources/icon.svg"));
 
     compile_windows_resources(&icon_path);
+    compile_windows_manifest();
 }
 
 fn generate_icon(svg_path: &Path) -> PathBuf {
@@ -61,6 +62,14 @@ fn generate_icon(svg_path: &Path) -> PathBuf {
 
 fn compile_windows_resources(icon_path: &Path) {
     let mut res = winres::WindowsResource::new();
-    res.set_icon(icon_path.to_str().unwrap());
+    res.set_icon_with_id(icon_path.to_str().unwrap(), "IDI_APPLICATION_ICON");
     res.compile().unwrap();
+}
+
+fn compile_windows_manifest() {
+    // Tell Cargo to rerun the build script whenever the manifest is modified
+    println!("cargo:rerun-if-changed=snip-and-autosave-manifest.rc");
+    println!("cargo:rerun-if-changed=snip-and-autosave.exe.manifest");
+
+    embed_resource::compile("snip-and-autosave-manifest.rc");
 }
