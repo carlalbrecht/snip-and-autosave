@@ -15,6 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 chrono = "0.4"
 rayon = "1.5"
+rfd = "0.4"
 
 [build-dependencies]
 embed-resource = "1.6"

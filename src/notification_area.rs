@@ -18,9 +18,11 @@ use bindings::Windows::Win32::{
         },
     },
 };
+use rfd::FileDialog;
 use std::ffi::CString;
-use std::mem::MaybeUninit;
-use std::{mem, ptr};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{mem, ptr, thread};
 use windows::{Guid, HRESULT};
 
 // Specified in `build.rs:compile_windows_resources`
@@ -121,6 +123,10 @@ pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
             send_notify_message(window, WM_CLOSE, WPARAM(0), LPARAM(0)).unwrap();
             Some(LRESULT(0))
         }
+        IDM_SET_LOCATION => {
+            set_screenshot_dir();
+            Some(LRESULT(0))
+        }
         IDM_OPEN_LOCATION => {
             explore_screenshot_dir(window).unwrap();
             Some(LRESULT(0))
@@ -184,6 +190,32 @@ fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
             ptr::null_mut(),
         );
     }
+}
+
+fn set_screenshot_dir() {
+    static IS_BROWSING: AtomicBool = AtomicBool::new(false);
+
+    thread::spawn(|| {
+        if IS_BROWSING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire)
+            .is_err()
+        {
+            // We already have a file dialog open
+            return;
+        }
+
+        let mut screenshot_path = PathBuf::new();
+        Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
+
+        if let Some(new_path) = FileDialog::new()
+            .set_directory(screenshot_path)
+            .pick_folder()
+        {
+            Settings::write(|s| s.paths.screenshots = new_path);
+        }
+
+        IS_BROWSING.store(false, Ordering::SeqCst);
+    });
 }
 
 fn explore_screenshot_dir(window: HWND) -> windows::Result<()> {
