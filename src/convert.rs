@@ -1,7 +1,10 @@
+//! Data format conversion routines.
+
 use bindings::Windows::Win32::Graphics::Gdi::{BITMAPINFO, BI_BITFIELDS};
 use image::{Pixel, Rgb, RgbImage};
 use thiserror::Error;
 
+/// Errors that can occur whilst converting an image.
 #[derive(Error, Debug)]
 pub enum ConversionError {
     #[error("Image data pointer is null")]
@@ -12,6 +15,10 @@ pub enum ConversionError {
     UnsupportedBitDepth(u16),
 }
 
+/// Reads the subpixel byte order of a device-independent bitmap.
+///
+/// E.g. a return value of `(0, 1, 2)` means that the red byte is the first
+/// byte, followed by the green, then blue bytes (i.e. RGB subpixel ordering).
 unsafe fn subpixel_ordering(color_masks: *const u32) -> (u32, u32, u32) {
     let red_mask = *color_masks;
     let green_mask = *color_masks.offset(1);
@@ -25,8 +32,19 @@ unsafe fn subpixel_ordering(color_masks: *const u32) -> (u32, u32, u32) {
     )
 }
 
+/// Copies the image data from a device-independent bitmap into an [`RgbImage`].
+///
+/// This function can currently only handle [`BI_BITFIELDS`] formatted DIB
+/// images, with a bit depth of 32-bpp.
+///
+/// This function can handle various subpixel orders, as well as both bottom and
+/// top-left corner origins.
+///
+/// [`RgbImage`]: RgbImage
+/// [`BI_BITFIELDS`]: BI_BITFIELDS
 pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, ConversionError> {
     unsafe {
+        // Pre-flight sanity checks
         if dib_image.is_null() {
             return Err(ConversionError::NullPointer);
         }
@@ -44,6 +62,7 @@ pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, Conversion
             return Err(ConversionError::UnsupportedBitDepth(bit_depth));
         }
 
+        // Read DIB header
         let width = (*dib_image).bmiHeader.biWidth.abs() as u32;
         let height = (*dib_image).bmiHeader.biHeight;
 
@@ -60,6 +79,7 @@ pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, Conversion
 
         let (r, g, b) = subpixel_ordering(color_masks);
 
+        // Copy pixel data
         let mut image = RgbImage::new(width as u32, height as u32);
 
         for i in (0..bytes).step_by(4) {

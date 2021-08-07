@@ -1,3 +1,5 @@
+//! Extension methods for various types.
+
 use crate::settings::Settings;
 use bindings::Windows::Win32::Foundation::PSTR;
 use image::codecs::png::PngDecoder;
@@ -10,7 +12,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use std::{fs, io};
 
+/// Extension methods for [`CString`] instances.
+///
+/// [`CString`]: CString
 pub trait CStringExtensions {
+    /// Gets a [`PSTR`], which points to the character data of this string.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer is always mutable. Many Win32 functions do not
+    /// actually mutate the data, but this cannot be guaranteed.
     unsafe fn as_pstr(&self) -> PSTR;
 }
 
@@ -20,7 +31,12 @@ impl CStringExtensions for CString {
     }
 }
 
+/// Extension methods for [`ImageBuffer`] instances.
+///
+/// [`ImageBuffer`]: image::ImageBuffer
 pub trait ImageExtensions {
+    /// Returns whether or not this image is the same as the last captured
+    /// screenshot (i.e. has equal dimensions and pixel content).
     fn is_same_as_last_screenshot(&self) -> bool;
 }
 
@@ -62,6 +78,8 @@ impl ImageExtensions for RgbImage {
     }
 }
 
+/// Calculates in parallel, row by row, whether or not two images, with equal
+/// dimensions, have the same pixel content.
 fn image_content_is_equal(image_a: &RgbImage, image_b: &RgbImage) -> bool {
     if image_a.dimensions() != image_b.dimensions() {
         return false;
@@ -89,6 +107,9 @@ fn image_content_is_equal(image_a: &RgbImage, image_b: &RgbImage) -> bool {
     result.into_inner()
 }
 
+/// Gets the path to the last-created file in a directory.
+///
+/// Note that this function uses files' created at time, not modified at.
 fn newest_file_in_dir(dir: &Path) -> io::Result<Option<PathBuf>> {
     assert!(dir.is_dir());
 

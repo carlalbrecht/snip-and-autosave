@@ -1,3 +1,10 @@
+//! Notification area icon management functions.
+//!
+//! This module relies on several private, `unsafe` Win32 function wrappers,
+//! which aren't exposed via [`windows`].
+//!
+//! [`windows`]: crate::windows
+
 use crate::extensions::CStringExtensions;
 use crate::settings::Settings;
 use crate::windows::{get_instance, load_menu, send_notify_message};
@@ -57,8 +64,20 @@ const IDM_EXIT: usize = 121;
 const IDM_SET_LOCATION: usize = 122;
 const IDM_OPEN_LOCATION: usize = 123;
 
+/// The message ID of notification area icon messages.
 pub const WMAPP_NOTIFYCALLBACK: u32 = WM_APP + 1;
 
+/// Creates a notification area icon for this application.
+///
+/// `window` specifies the window that owns the icon. Notification area icon
+/// messages ([`WMAPP_NOTIFYCALLBACK`]) will be sent to the `wndProc` function
+/// for this window.
+///
+/// If an icon for this program already exists, it is removed, before a new one
+/// is created. This only happens if the application was forcefully terminated,
+/// preventing its clean-up routines from removing the icon in the last run.
+///
+/// [`WMAPP_NOTIFYCALLBACK`]: WMAPP_NOTIFYCALLBACK
 pub fn create_icon(window: HWND) -> windows::Result<()> {
     // If the icon still exists from a previous run (i.e. the program was forcefully terminated,
     // thus preventing it from removing the icon before closing), it will prevent us from creating
@@ -92,6 +111,7 @@ pub fn create_icon(window: HWND) -> windows::Result<()> {
     Ok(())
 }
 
+/// Removes the notification area icon for this application.
 pub fn remove_icon() -> windows::Result<()> {
     let mut icon_data = NOTIFYICONDATAA {
         uFlags: NIF_GUID,
@@ -104,6 +124,12 @@ pub fn remove_icon() -> windows::Result<()> {
     Ok(())
 }
 
+/// Message handler for notification area icon messages.
+///
+/// This should be called from the `wndProc` function for the [`HWND`] that the
+/// notification area icon was created under.
+///
+/// [`HWND`]: HWND
 //noinspection RsUnreachablePatterns
 pub fn notify_callback(window: HWND, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
     match (l_param.0 & 0xFFFF) as u32 {
@@ -117,6 +143,10 @@ pub fn notify_callback(window: HWND, w_param: WPARAM, l_param: LPARAM) -> LRESUL
     }
 }
 
+/// [`WM_COMMAND`] processor, which handles commands related to the notification
+/// area icon (e.g. the icon's context menu entries).
+///
+/// [`WM_COMMAND`]: bindings::Windows::Win32::UI::WindowsAndMessaging::WM_COMMAND
 pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
     match command {
         IDM_EXIT => {
@@ -135,6 +165,9 @@ pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
     }
 }
 
+/// Safe wrapper around [`Shell_NotifyIconA`].
+///
+/// [`Shell_NotifyIconA`]: Shell_NotifyIconA
 fn shell_notify_icon(
     message: NOTIFY_ICON_MESSAGE,
     data: &mut NOTIFYICONDATAA,
@@ -146,6 +179,13 @@ fn shell_notify_icon(
     }
 }
 
+/// Returns a default (zeroed) [`NOTIFYICONDATAA`] instance. the `cbSize` field
+/// is initialised properly, to the size of the [`NOTIFYICONDATAA`] struct.
+///
+/// This essentially functions like a [`Default`] implementation.
+///
+/// [`NOTIFYICONDATAA`]: NOTIFYICONDATAA
+/// [`Default`]: Default
 fn default_notify_icon_data() -> NOTIFYICONDATAA {
     NOTIFYICONDATAA {
         cbSize: mem::size_of::<NOTIFYICONDATAA>() as u32,
@@ -166,6 +206,13 @@ fn default_notify_icon_data() -> NOTIFYICONDATAA {
     }
 }
 
+/// Shows the context menu for the notification area icon.
+///
+/// # Arguments
+///
+/// * `window`  - The window that owns the notification area icon.
+/// * `click_x` - The mouse X position of the right click.
+/// * `click_y` - The mouse Y position of the right click.
 fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
     unsafe {
         let menu = load_menu(get_instance().unwrap(), PSTR(200 as *mut u8));
@@ -192,6 +239,15 @@ fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
     }
 }
 
+/// Opens a folder select dialog, to select the directory to save captured
+/// screenshots to.
+///
+/// If the user accepts a directory in the dialog, it is written to the global
+/// application [`Settings`].
+///
+/// This function is a no-op if a folder select dialog is already open.
+///
+/// [`Settings`]: Settings
 fn set_screenshot_dir() {
     static IS_BROWSING: AtomicBool = AtomicBool::new(false);
 
@@ -218,6 +274,7 @@ fn set_screenshot_dir() {
     });
 }
 
+/// Opens an explorer window to the current screenshot output directory.
 fn explore_screenshot_dir(window: HWND) -> windows::Result<()> {
     let operation = CString::new("explore").unwrap();
     let mut folder: CString = CString::new("").unwrap();

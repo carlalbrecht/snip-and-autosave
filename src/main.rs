@@ -33,6 +33,8 @@ mod notification_area;
 mod settings;
 mod windows;
 
+/// Debounces incoming window messages, returning `true` if the debounce period
+/// for a specific `message` has been exceeded.
 fn debounce_message(message: u32) -> bool {
     const DEBOUNCE_TIME: Duration = Duration::from_millis(1000);
 
@@ -53,6 +55,7 @@ fn debounce_message(message: u32) -> bool {
     result
 }
 
+/// Generates the fully qualified path for a new screenshot.
 fn generate_output_path() -> PathBuf {
     let mut screenshot_path = PathBuf::new();
     Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
@@ -67,12 +70,14 @@ fn generate_output_path() -> PathBuf {
         .with_extension("png")
 }
 
+/// `WM_CREATE` message processor.
 fn on_create(window: HWND) -> LRESULT {
     notification_area::create_icon(window).unwrap();
 
     LRESULT(0)
 }
 
+/// `WM_CLOSE` message processor.
 fn on_close(window: HWND) -> LRESULT {
     notification_area::remove_icon().unwrap();
     destroy_window(window);
@@ -80,12 +85,16 @@ fn on_close(window: HWND) -> LRESULT {
     LRESULT(0)
 }
 
+/// `WM_DESTROY` message processor.
 fn on_destroy() -> LRESULT {
     post_quit_message(0);
 
     LRESULT(0)
 }
 
+/// `WM_COMMAND` message processor.
+///
+/// This function defers to different command processors within the program.
 fn on_command(window: HWND, message: u32, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
     let command = w_param.0 & 0xFFFF;
 
@@ -98,6 +107,7 @@ fn on_command(window: HWND, message: u32, w_param: WPARAM, l_param: LPARAM) -> L
     unsafe { DefWindowProcA(window, message, w_param, l_param) }
 }
 
+/// `WM_CLIPBOARDUPDATE` message processor.
 fn on_clipboard_update(window: HWND) -> LRESULT {
     println!("\nWM_CLIPBOARDUPDATE message received");
 
@@ -139,6 +149,7 @@ fn on_clipboard_update(window: HWND) -> LRESULT {
     LRESULT(0)
 }
 
+/// `wndProc`, i.e. the window message processor.
 // noinspection RsLiveness
 // noinspection RsUnreachablePatterns
 unsafe extern "system" fn window_proc(
