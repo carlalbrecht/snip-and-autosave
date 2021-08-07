@@ -14,9 +14,9 @@ use bindings::Windows::Win32::{
     UI::{
         Controls::{LoadIconMetric, LIM_SMALL, WM_CONTEXTMENU},
         Shell::{
-            ShellExecuteA, Shell_NotifyIconA, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP,
-            NIF_TIP, NIM_ADD, NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0,
-            NOTIFYICON_VERSION_4, NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
+            ShellExecuteA, Shell_NotifyIconA, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP, NIF_TIP, NIM_ADD,
+            NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0, NOTIFYICON_VERSION_4,
+            NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
         },
         WindowsAndMessaging::{
             GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx, HICON,
@@ -38,27 +38,6 @@ static ICON_IDENTIFIER: &str = "IDI_APPLICATION_ICON";
 // Ampersands in notification area tooltips require double-escaping:
 // https://stackoverflow.com/a/10279419/13166644
 static ICON_TOOLTIP: &str = "Snip &&& AutoSave";
-
-// We need a separate GUID for debug and release, or else creating the notification area icon fails,
-// for some unknown reason. This trick was taken from a comment near the bottom of
-// https://social.msdn.microsoft.com/Forums/windowsdesktop/en-US/8ccef628-7620-400a-8cb5-e8761de8c5fc/shellnotifyicon-fails-error-is-errornotoken#6b29a1b8-f69b-4036-87c2-d581b59f6d4b
-// 02b72d97-c85d-463b-804e-af47dcabc45a
-#[cfg(debug_assertions)]
-const ICON_GUID: Guid = Guid::from_values(
-    0x02b72d97,
-    0xc85d,
-    0x463b,
-    [0x80, 0x4e, 0xaf, 0x47, 0xdc, 0xab, 0xc4, 0x5a],
-);
-
-// 06c32dae-8246-4e89-a018-bc676a8e655f
-#[cfg(not(debug_assertions))]
-const ICON_GUID: Guid = Guid::from_values(
-    0x06c32dae,
-    0x8246,
-    0x4e89,
-    [0xa0, 0x18, 0xbc, 0x67, 0x6a, 0x8e, 0x65, 0x5f],
-);
 
 const IDM_EXIT: usize = 121;
 const IDM_SET_LOCATION: usize = 122;
@@ -82,7 +61,7 @@ pub fn create_icon(window: HWND) -> windows::Result<()> {
     // If the icon still exists from a previous run (i.e. the program was forcefully terminated,
     // thus preventing it from removing the icon before closing), it will prevent us from creating
     // a new icon. Therefore, we remove it, if it exists.
-    let _ = remove_icon();
+    let _ = remove_icon(window);
 
     let mut tooltip = [CHAR(0); 128];
 
@@ -92,7 +71,8 @@ pub fn create_icon(window: HWND) -> windows::Result<()> {
 
     let mut icon_data = NOTIFYICONDATAA {
         hWnd: window,
-        uFlags: NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID,
+        uID: 0,
+        uFlags: NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP,
         uCallbackMessage: WMAPP_NOTIFYCALLBACK,
         hIcon: unsafe {
             LoadIconMetric(get_instance().unwrap(), ICON_IDENTIFIER, LIM_SMALL).unwrap()
@@ -101,7 +81,6 @@ pub fn create_icon(window: HWND) -> windows::Result<()> {
         Anonymous: NOTIFYICONDATAA_0 {
             uVersion: NOTIFYICON_VERSION_4,
         },
-        guidItem: ICON_GUID,
         ..default_notify_icon_data()
     };
 
@@ -112,10 +91,10 @@ pub fn create_icon(window: HWND) -> windows::Result<()> {
 }
 
 /// Removes the notification area icon for this application.
-pub fn remove_icon() -> windows::Result<()> {
+pub fn remove_icon(window: HWND) -> windows::Result<()> {
     let mut icon_data = NOTIFYICONDATAA {
-        uFlags: NIF_GUID,
-        guidItem: ICON_GUID,
+        hWnd: window,
+        uID: 0,
         ..default_notify_icon_data()
     };
 

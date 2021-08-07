@@ -79,7 +79,7 @@ fn on_create(window: HWND) -> LRESULT {
 
 /// `WM_CLOSE` message processor.
 fn on_close(window: HWND) -> LRESULT {
-    notification_area::remove_icon().unwrap();
+    notification_area::remove_icon(window).unwrap();
     destroy_window(window);
 
     LRESULT(0)
