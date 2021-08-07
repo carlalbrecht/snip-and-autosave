@@ -1,12 +1,24 @@
 use crate::settings::Settings;
+use bindings::Windows::Win32::Foundation::PSTR;
 use image::codecs::png::PngDecoder;
 use image::{ColorType, DynamicImage, ImageDecoder, RgbImage};
 use rayon::prelude::*;
+use std::ffi::CString;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 use std::{fs, io};
+
+pub trait CStringExtensions {
+    unsafe fn as_pstr(&self) -> PSTR;
+}
+
+impl CStringExtensions for CString {
+    unsafe fn as_pstr(&self) -> PSTR {
+        PSTR(self.as_ptr() as *mut u8)
+    }
+}
 
 pub trait ImageExtensions {
     fn is_same_as_last_screenshot(&self) -> bool;

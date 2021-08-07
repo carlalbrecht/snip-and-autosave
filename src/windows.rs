@@ -1,7 +1,9 @@
+use crate::extensions::CStringExtensions;
 use bindings::Windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, LPARAM, PSTR, WPARAM},
     Graphics::Gdi::BITMAPINFO,
     System::{
+        Com::{CoInitializeEx, COINIT},
         Console::AttachConsole,
         DataExchange::{
             AddClipboardFormatListener, CloseClipboard, GetClipboardData,
@@ -67,6 +69,10 @@ pub fn attach_console() -> bool {
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS).0 != 0 }
 }
 
+pub fn com_initialize(coinit: COINIT) -> windows::Result<()> {
+    unsafe { CoInitializeEx(ptr::null_mut(), coinit) }
+}
+
 pub fn get_instance() -> windows::Result<HINSTANCE> {
     unsafe {
         let handle = GetModuleHandleA(None);
@@ -85,12 +91,12 @@ pub fn create_window_class(
     window_proc: Option<WNDPROC>,
 ) -> windows::Result<CString> {
     unsafe {
-        let class_name = CString::new(class_name).expect("CString::new failed");
+        let class_name = CString::new(class_name).unwrap();
 
         let atom = RegisterClassA(&WNDCLASSA {
             lpfnWndProc: window_proc,
             hInstance: instance,
-            lpszClassName: PSTR(class_name.as_ptr() as *mut u8),
+            lpszClassName: class_name.as_pstr(),
             ..Default::default()
         });
 
@@ -110,7 +116,7 @@ pub fn create_window(
     unsafe {
         let window = CreateWindowExA(
             WINDOW_EX_STYLE(0),
-            PSTR(class.as_ptr() as *mut u8),
+            class.as_pstr(),
             window_name,
             WINDOW_STYLE(0),
             CW_USEDEFAULT,

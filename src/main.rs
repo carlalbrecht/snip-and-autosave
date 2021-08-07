@@ -6,12 +6,13 @@ use crate::heuristics::clipboard_owned_by_snip_and_sketch;
 use crate::notification_area::WMAPP_NOTIFYCALLBACK;
 use crate::settings::Settings;
 use crate::windows::{
-    add_clipboard_listener, attach_console, create_window, create_window_class, destroy_window,
-    find_window, get_clipboard_dib, get_instance, message_loop, open_clipboard, post_quit_message,
-    CLASS_NAME, WINDOW_NAME,
+    add_clipboard_listener, attach_console, com_initialize, create_window, create_window_class,
+    destroy_window, find_window, get_clipboard_dib, get_instance, message_loop, open_clipboard,
+    post_quit_message, CLASS_NAME, WINDOW_NAME,
 };
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+    System::Com::COINIT_APARTMENTTHREADED,
     UI::WindowsAndMessaging::{
         DefWindowProcA, WM_CLIPBOARDUPDATE, WM_CLOSE, WM_COMMAND, WM_CREATE, WM_DESTROY,
     },
@@ -159,6 +160,7 @@ unsafe extern "system" fn window_proc(
 
 fn main() -> ::windows::Result<()> {
     attach_console();
+    com_initialize(COINIT_APARTMENTTHREADED)?;
 
     // Only allow one instance of the program to run at a time
     if find_window(CLASS_NAME, WINDOW_NAME).is_some() {

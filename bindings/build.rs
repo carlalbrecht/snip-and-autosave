@@ -13,6 +13,10 @@ fn main() {
             },
             System::{
                 Console::AttachConsole,
+                Com::{
+                    CoInitializeEx,
+                    COINIT
+                },
                 DataExchange::{
                     AddClipboardFormatListener,
                     GetClipboardData,
@@ -31,6 +35,7 @@ fn main() {
             },
             Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER, BI_BITFIELDS},
             UI::Shell::{
+                ShellExecuteA,
                 Shell_NotifyIconA,
                 NOTIFYICONDATAA,
                 NOTIFY_ICON_DATA_FLAGS,

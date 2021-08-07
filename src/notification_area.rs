@@ -1,3 +1,5 @@
+use crate::extensions::CStringExtensions;
+use crate::settings::Settings;
 use crate::windows::{get_instance, load_menu, send_notify_message};
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, PSTR, WPARAM},
@@ -5,16 +7,19 @@ use bindings::Windows::Win32::{
     UI::{
         Controls::{LoadIconMetric, LIM_SMALL, WM_CONTEXTMENU},
         Shell::{
-            Shell_NotifyIconA, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP, NIF_TIP, NIM_ADD,
-            NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0, NOTIFYICON_VERSION_4,
-            NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
+            ShellExecuteA, Shell_NotifyIconA, NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP,
+            NIF_TIP, NIM_ADD, NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0,
+            NOTIFYICON_VERSION_4, NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
         },
         WindowsAndMessaging::{
             GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx, HICON,
-            SM_MENUDROPALIGNMENT, TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_CLOSE,
+            SM_MENUDROPALIGNMENT, SW_SHOWNORMAL, TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON,
+            WM_APP, WM_CLOSE,
         },
     },
 };
+use std::ffi::CString;
+use std::mem::MaybeUninit;
 use std::{mem, ptr};
 use windows::{Guid, HRESULT};
 
@@ -116,6 +121,10 @@ pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
             send_notify_message(window, WM_CLOSE, WPARAM(0), LPARAM(0)).unwrap();
             Some(LRESULT(0))
         }
+        IDM_OPEN_LOCATION => {
+            explore_screenshot_dir(window).unwrap();
+            Some(LRESULT(0))
+        }
         _ => None,
     }
 }
@@ -174,5 +183,30 @@ fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
             window,
             ptr::null_mut(),
         );
+    }
+}
+
+fn explore_screenshot_dir(window: HWND) -> windows::Result<()> {
+    let operation = CString::new("explore").unwrap();
+    let mut folder: CString = CString::new("").unwrap();
+
+    Settings::read(|s| {
+        folder = CString::new(s.paths.screenshots.to_str().unwrap()).unwrap();
+    });
+
+    if unsafe {
+        ShellExecuteA(
+            window,
+            operation.as_pstr(),
+            folder.as_pstr(),
+            PSTR(ptr::null_mut()),
+            PSTR(ptr::null_mut()),
+            SW_SHOWNORMAL.0 as i32,
+        )
+        .0 <= 32
+    } {
+        Err(HRESULT::from_thread().into())
+    } else {
+        Ok(())
     }
 }
