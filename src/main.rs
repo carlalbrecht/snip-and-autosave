@@ -23,8 +23,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::thread;
 use std::time::{Duration, Instant};
+use std::{fs, thread};
 
 mod convert;
 mod extensions;
@@ -59,6 +59,9 @@ fn debounce_message(message: u32) -> bool {
 fn generate_output_path() -> PathBuf {
     let mut screenshot_path = PathBuf::new();
     Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
+
+    // Make sure that the screenshot path exists, if we are running for the first time
+    fs::create_dir_all(&screenshot_path).unwrap();
 
     let now = Local::now();
 

@@ -27,7 +27,7 @@ use bindings::Windows::Win32::{
 };
 use rfd::FileDialog;
 use std::ffi::CString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{mem, ptr, thread};
 use windows::{Guid, HRESULT};
@@ -240,7 +240,10 @@ fn set_screenshot_dir() {
         }
 
         let mut screenshot_path = PathBuf::new();
-        Settings::read(|s| screenshot_path = s.paths.screenshots.clone());
+
+        Settings::read(|s| {
+            screenshot_path = find_existing_parent(&s.paths.screenshots);
+        });
 
         if let Some(new_path) = FileDialog::new()
             .set_directory(screenshot_path)
@@ -259,7 +262,11 @@ fn explore_screenshot_dir(window: HWND) -> windows::Result<()> {
     let mut folder: CString = CString::new("").unwrap();
 
     Settings::read(|s| {
-        folder = CString::new(s.paths.screenshots.to_str().unwrap()).unwrap();
+        // This isn't optimal, but, rather than failing if the path doesn't exist, we just open an
+        // explorer window to a parent folder in the path that does exist
+        let parent = find_existing_parent(&s.paths.screenshots);
+
+        folder = CString::new(parent.to_str().unwrap()).unwrap();
     });
 
     if unsafe {
@@ -277,4 +284,24 @@ fn explore_screenshot_dir(window: HWND) -> windows::Result<()> {
     } else {
         Ok(())
     }
+}
+
+/// Finds the first existing path, starting from a child path. This allows
+/// callers to handle navigation to directories that have since been deleted by
+/// the user.
+fn find_existing_parent(path: &Path) -> PathBuf {
+    let mut current_path = path;
+
+    // Find first parent directory that exists (in case the user deleted the currently
+    // configured screenshot directory). Otherwise, if we attempt to open a dialog starting
+    // from a directory that doesn't exist, the dialog simply does not appear.
+    while !current_path.exists() {
+        if let Some(parent) = current_path.parent() {
+            current_path = parent;
+        } else {
+            break;
+        }
+    }
+
+    current_path.into()
 }

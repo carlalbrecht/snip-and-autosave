@@ -111,6 +111,10 @@ fn image_content_is_equal(image_a: &RgbImage, image_b: &RgbImage) -> bool {
 ///
 /// Note that this function uses files' created at time, not modified at.
 fn newest_file_in_dir(dir: &Path) -> io::Result<Option<PathBuf>> {
+    if !dir.exists() {
+        return Ok(None);
+    }
+
     assert!(dir.is_dir());
 
     let mut newest_path = None;
