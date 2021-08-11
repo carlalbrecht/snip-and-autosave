@@ -114,25 +114,26 @@ fn on_command(window: HWND, message: u32, w_param: WPARAM, l_param: LPARAM) -> L
 fn on_clipboard_update(window: HWND) -> LRESULT {
     println!("\nWM_CLIPBOARDUPDATE message received");
 
+    // Give the Snip & Sketch screenshot overlay a chance to
+    // disappear before we block the clipboard to copy image data
+    thread::sleep(Duration::from_millis(100));
+
+    let clipboard = open_clipboard(Some(window)).unwrap();
+
     if debounce_message(WM_CLIPBOARDUPDATE) {
         println!("WM_CLIPBOARDUPDATE debounced - message ignored");
         return LRESULT(0);
-    } else if clipboard_owned_by_snip_and_sketch().unwrap_or_else(|e| {
+    } else if clipboard_owned_by_snip_and_sketch(&clipboard).unwrap_or_else(|e| {
         println!("Heuristics failed: {:#?}", e);
         false
     }) {
         println!("Clipboard is owned by Snip & Sketch - saving screenshot to disk");
 
-        // Give the Snip & Sketch screenshot overlay a chance to
-        // disappear before we block the clipboard to copy image data
-        thread::sleep(Duration::from_millis(100));
-
         // TODO: don't unwrap here
         let image = {
-            let _clipboard = open_clipboard(Some(window)).unwrap();
-            let bitmap = get_clipboard_dib().unwrap();
+            let bitmap = get_clipboard_dib(&clipboard).unwrap();
 
-            dib_to_image(bitmap).unwrap()
+            dib_to_image(bitmap, &clipboard).unwrap()
         };
 
         thread::spawn(move || {

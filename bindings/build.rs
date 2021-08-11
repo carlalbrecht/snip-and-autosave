@@ -19,7 +19,9 @@ fn main() {
                 },
                 DataExchange::{
                     AddClipboardFormatListener,
+                    EnumClipboardFormats,
                     GetClipboardData,
+                    GetClipboardFormatNameA,
                     GetClipboardOwner,
                     GetPriorityClipboardFormat,
                     OpenClipboard,

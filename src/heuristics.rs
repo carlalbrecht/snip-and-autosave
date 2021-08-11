@@ -3,9 +3,17 @@
 
 use crate::windows::{
     get_priority_clipboard_format, get_process_image_file_name, get_window_thread_and_process_id,
-    open_process,
+    open_process, Clipboard,
 };
-use bindings::Windows::Win32::System::{DataExchange::GetClipboardOwner, SystemServices::CF_DIB};
+use bindings::Windows::Win32::{
+    Foundation::PSTR,
+    System::{
+        DataExchange::{EnumClipboardFormats, GetClipboardFormatNameA, GetClipboardOwner},
+        SystemServices::CF_DIB,
+    },
+};
+use maplit::hashset;
+use std::collections::HashSet;
 
 /// Gets the NT path to the process that owns the current clipboard data.
 fn get_clipboard_owner_process_name() -> windows::Result<String> {
@@ -28,12 +36,109 @@ fn get_clipboard_owner_process_name() -> windows::Result<String> {
 
 /// Returns whether or not the current clipboard data is likely owned by Snip &
 /// Sketch.
-pub fn clipboard_owned_by_snip_and_sketch() -> windows::Result<bool> {
+pub fn clipboard_owned_by_snip_and_sketch(clipboard: &Clipboard) -> windows::Result<bool> {
     let process_name = get_clipboard_owner_process_name()?;
     let process_name_heuristic = process_name.ends_with("\\svchost.exe");
 
     let priority_format = get_priority_clipboard_format(&[CF_DIB]);
-    let format_heuristic = priority_format.is_some();
+    let priority_format_heuristic = priority_format.is_some();
 
-    Ok(process_name_heuristic && format_heuristic)
+    // This basically abuses shell clipboard formats etc. to determine whether
+    // the clipboard object is an OLE object, and uses UWP's PNG format. This
+    // helps filter other programs like Adobe XD, that make `svchost.exe` own
+    // image clipboard objects.
+    // https://docs.microsoft.com/en-us/windows/win32/shell/clipboard
+    let (_standard_formats, registered_formats) = clipboard_format_names(&clipboard);
+    let format_heuristic = registered_formats.is_superset(&hashset! {
+        "DataObject".into(),
+        "Preferred DropEffect".into(),
+        "PNG".into()
+    });
+
+    Ok(process_name_heuristic && priority_format_heuristic && format_heuristic)
+}
+
+/// Collects the string names of each standard and registered clipboard format
+/// supported by the current clipboard object.
+///
+/// Returns a 2-tuple, where the first element is the set of standard clipboard
+/// formats, and the second element is the set of registered clipboard formats.
+fn clipboard_format_names(_clipboard: &Clipboard) -> (HashSet<String>, HashSet<String>) {
+    // Maximum byte length of registered format names
+    const FORMAT_NAME_MAX_BYTES: usize = 256;
+
+    let mut standard_formats = HashSet::new();
+    let mut registered_formats = HashSet::new();
+
+    let mut format = unsafe { EnumClipboardFormats(0) };
+
+    while format != 0 {
+        if let Some(format_name) = standard_clipboard_format_name(format) {
+            println!(
+                "Format {:#06X} name: {} (standard format)",
+                format, format_name
+            );
+
+            standard_formats.insert(format_name.into());
+        } else {
+            // Read the name of a registered format, as a C-string
+            let mut format_name_raw = vec![0; FORMAT_NAME_MAX_BYTES + 1];
+
+            let format_name_length = unsafe {
+                GetClipboardFormatNameA(
+                    format,
+                    PSTR(format_name_raw.as_mut_ptr()),
+                    FORMAT_NAME_MAX_BYTES as i32,
+                )
+            };
+
+            format_name_raw.truncate(format_name_length as usize);
+
+            let format_name = String::from_utf8(format_name_raw)
+                .expect("Invalid UTF-8 returned by GetClipboardFormatNameA");
+
+            println!("Format {:#06X} name: {}", format, format_name);
+
+            registered_formats.insert(format_name);
+        }
+
+        format = unsafe { EnumClipboardFormats(format) };
+    }
+
+    (standard_formats, registered_formats)
+}
+
+/// Converts a standard Windows clipboard format (not including shell clipboard
+/// formats, etc) to a string name (currently just the name of the enum constant
+/// in the Windows headers).
+fn standard_clipboard_format_name(format: u32) -> Option<&'static str> {
+    match format {
+        0x0002 => Some("CF_BITMAP"),
+        0x0008 => Some("CF_DIB"),
+        0x0017 => Some("CF_DIBV5"),
+        0x0005 => Some("CF_DIF"),
+        0x0082 => Some("CF_DSPBITMAP"),
+        0x008E => Some("CF_DSPENHMETAFILE"),
+        0x0083 => Some("CF_DSPMETAFILEPICT"),
+        0x0081 => Some("CF_DSPTEXT"),
+        0x0014 => Some("CF_ENHMETAFILE"),
+        0x0300 => Some("CF_GDIOBJFIRST"),
+        0x03FF => Some("CF_GDIOBJLAST"),
+        0x0015 => Some("CF_HDROP"),
+        0x0016 => Some("CF_LOCALE"),
+        0x0003 => Some("CF_METAFILEPICT"),
+        0x0007 => Some("CF_OEMTEXT"),
+        0x0080 => Some("CF_OWNERDISPLAY"),
+        0x0009 => Some("CF_PALETTE"),
+        0x0010 => Some("CF_PENDATA"),
+        0x0200 => Some("CF_PRIVATEFIRST"),
+        0x02FF => Some("CF_PRIVATELAST"),
+        0x0011 => Some("CF_RIFF"),
+        0x0004 => Some("CF_SYLK"),
+        0x0001 => Some("CF_TEXT"),
+        0x0006 => Some("CF_TIFF"),
+        0x0013 => Some("CF_UNICODETEXT"),
+        0x0012 => Some("CF_WAVE"),
+        _ => None,
+    }
 }

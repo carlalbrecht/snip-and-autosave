@@ -81,6 +81,13 @@ where
     }
 }
 
+/// Holding an instance of this new type indicates that the application has the
+/// clipboard open. Functions can take an instance of this as an argument, to
+/// force the caller to arrange a call to [`open_clipboard`] before calling it.
+///
+/// [`open_clipboard`]: open_clipboard
+pub struct Clipboard(AutoClose<()>);
+
 /// Attaches the current process to its parent process's console, if it has one.
 ///
 /// Returns whether or not the console was attached. This will return `false` if
@@ -309,11 +316,11 @@ pub fn get_process_image_file_name(process_handle: HANDLE) -> windows::Result<St
 ///
 /// [`OpenClipboard`]: OpenClipboard
 /// [`open_clipboard`]: open_clipboard
-fn open_clipboard_inner(window: Option<HWND>) -> windows::Result<AutoClose<()>> {
+fn open_clipboard_inner(window: Option<HWND>) -> windows::Result<Clipboard> {
     if unsafe { OpenClipboard(window.unwrap_or(HWND(0))).0 != 0 } {
-        Ok(AutoClose::new((), |_| unsafe {
+        Ok(Clipboard(AutoClose::new((), |_| unsafe {
             CloseClipboard();
-        }))
+        })))
     } else {
         Err(HRESULT::from_thread().into())
     }
@@ -331,10 +338,10 @@ fn open_clipboard_inner(window: Option<HWND>) -> windows::Result<AutoClose<()>> 
 ///
 /// [`OpenClipboard`]: OpenClipboard
 /// [`AutoClose`]: AutoClose
-pub fn open_clipboard(window: Option<HWND>) -> windows::Result<AutoClose<()>> {
+pub fn open_clipboard(window: Option<HWND>) -> windows::Result<Clipboard> {
     const RETRY_INTERVAL: Duration = Duration::from_millis(50);
 
-    let mut result: windows::Result<AutoClose<()>> = open_clipboard_inner(window.clone());
+    let mut result = open_clipboard_inner(window.clone());
 
     for _ in 0..5 {
         if result.is_ok() {
@@ -409,18 +416,18 @@ pub unsafe fn get_clipboard_data<T>(format: CLIPBOARD_FORMATS) -> windows::Resul
 ///
 /// [`CF_DIB`]: CF_DIB
 /// [`get_clipboard_data`]: get_clipboard_data
-pub fn get_clipboard_dib() -> windows::Result<*const BITMAPINFO> {
+pub fn get_clipboard_dib(_clipboard: &Clipboard) -> windows::Result<*const BITMAPINFO> {
     unsafe { get_clipboard_data::<BITMAPINFO>(CF_DIB) }
 }
 
 /// Unsafe wrapper around [`LoadMenuA`], which loads a menu from a Windows
 /// resource file, that has been compiled into the executable file.
-/// 
+///
 /// # Safety
-/// 
+///
 /// `menu_name` must either point to a valid C-string, or have its pointer value
 /// set to the resource ID of a `MENU` structure.
-/// 
+///
 /// [`LoadMenuA`]: LoadMenuA
 pub unsafe fn load_menu<'a>(
     instance: HINSTANCE,

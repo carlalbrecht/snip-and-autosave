@@ -1,5 +1,6 @@
 //! Data format conversion routines.
 
+use crate::windows::Clipboard;
 use bindings::Windows::Win32::Graphics::Gdi::{BITMAPINFO, BI_BITFIELDS};
 use image::{Pixel, Rgb, RgbImage};
 use thiserror::Error;
@@ -42,7 +43,10 @@ unsafe fn subpixel_ordering(color_masks: *const u32) -> (u32, u32, u32) {
 ///
 /// [`RgbImage`]: RgbImage
 /// [`BI_BITFIELDS`]: BI_BITFIELDS
-pub fn dib_to_image(dib_image: *const BITMAPINFO) -> Result<RgbImage, ConversionError> {
+pub fn dib_to_image(
+    dib_image: *const BITMAPINFO,
+    _clipboard: &Clipboard,
+) -> Result<RgbImage, ConversionError> {
     unsafe {
         // Pre-flight sanity checks
         if dib_image.is_null() {
