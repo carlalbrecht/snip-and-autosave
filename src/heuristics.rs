@@ -15,25 +15,6 @@ use bindings::Windows::Win32::{
 use maplit::hashset;
 use std::collections::HashSet;
 
-/// Gets the NT path to the process that owns the current clipboard data.
-fn get_clipboard_owner_process_name() -> windows::Result<String> {
-    // TODO maybe move this to `windows.rs`
-    let owner_window = unsafe { GetClipboardOwner() };
-    let (process, thread) = get_window_thread_and_process_id(owner_window);
-
-    println!(
-        "Clipboard contents owned by process {}, thread {}",
-        process, thread
-    );
-
-    let process_handle = open_process(process)?;
-    let process_name = get_process_image_file_name(process_handle.value())?;
-
-    println!("Process name: {}", process_name);
-
-    Ok(process_name)
-}
-
 /// Returns whether or not the current clipboard data is likely owned by Snip &
 /// Sketch.
 pub fn clipboard_owned_by_snip_and_sketch(clipboard: &Clipboard) -> windows::Result<bool> {
@@ -56,6 +37,25 @@ pub fn clipboard_owned_by_snip_and_sketch(clipboard: &Clipboard) -> windows::Res
     });
 
     Ok(process_name_heuristic && priority_format_heuristic && format_heuristic)
+}
+
+/// Gets the NT path to the process that owns the current clipboard data.
+fn get_clipboard_owner_process_name() -> windows::Result<String> {
+    // TODO maybe move this to `windows.rs`
+    let owner_window = unsafe { GetClipboardOwner() };
+    let (process, thread) = get_window_thread_and_process_id(owner_window);
+
+    println!(
+        "Clipboard contents owned by process {}, thread {}",
+        process, thread
+    );
+
+    let process_handle = open_process(process)?;
+    let process_name = get_process_image_file_name(process_handle.value())?;
+
+    println!("Process name: {}", process_name);
+
+    Ok(process_name)
 }
 
 /// Collects the string names of each standard and registered clipboard format
