@@ -111,34 +111,37 @@ fn clipboard_format_names(_clipboard: &Clipboard) -> (HashSet<String>, HashSet<S
 /// Converts a standard Windows clipboard format (not including shell clipboard
 /// formats, etc) to a string name (currently just the name of the enum constant
 /// in the Windows headers).
+///
+/// The list of standard format names was extracted from
+/// https://docs.microsoft.com/en-us/windows/win32/dataxchg/standard-clipboard-formats
 fn standard_clipboard_format_name(format: u32) -> Option<&'static str> {
     match format {
         0x0002 => Some("CF_BITMAP"),
         0x0008 => Some("CF_DIB"),
-        0x0017 => Some("CF_DIBV5"),
+        0x0011 => Some("CF_DIBV5"),
         0x0005 => Some("CF_DIF"),
         0x0082 => Some("CF_DSPBITMAP"),
         0x008E => Some("CF_DSPENHMETAFILE"),
         0x0083 => Some("CF_DSPMETAFILEPICT"),
         0x0081 => Some("CF_DSPTEXT"),
-        0x0014 => Some("CF_ENHMETAFILE"),
+        0x000E => Some("CF_ENHMETAFILE"),
         0x0300 => Some("CF_GDIOBJFIRST"),
         0x03FF => Some("CF_GDIOBJLAST"),
-        0x0015 => Some("CF_HDROP"),
-        0x0016 => Some("CF_LOCALE"),
+        0x000F => Some("CF_HDROP"),
+        0x0010 => Some("CF_LOCALE"),
         0x0003 => Some("CF_METAFILEPICT"),
         0x0007 => Some("CF_OEMTEXT"),
         0x0080 => Some("CF_OWNERDISPLAY"),
         0x0009 => Some("CF_PALETTE"),
-        0x0010 => Some("CF_PENDATA"),
+        0x000A => Some("CF_PENDATA"),
         0x0200 => Some("CF_PRIVATEFIRST"),
         0x02FF => Some("CF_PRIVATELAST"),
-        0x0011 => Some("CF_RIFF"),
+        0x000B => Some("CF_RIFF"),
         0x0004 => Some("CF_SYLK"),
         0x0001 => Some("CF_TEXT"),
         0x0006 => Some("CF_TIFF"),
-        0x0013 => Some("CF_UNICODETEXT"),
-        0x0012 => Some("CF_WAVE"),
+        0x000D => Some("CF_UNICODETEXT"),
+        0x000C => Some("CF_WAVE"),
         _ => None,
     }
 }
