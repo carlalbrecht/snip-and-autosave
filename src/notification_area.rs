@@ -7,21 +7,23 @@
 
 use crate::extensions::CStringExtensions;
 use crate::settings::Settings;
-use crate::windows::{get_instance, load_menu, send_notify_message};
+use crate::windows::{
+    create_link, get_instance, get_known_folder_path, load_menu, send_notify_message,
+};
 use bindings::Windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, PSTR, WPARAM},
     System::SystemServices::CHAR,
     UI::{
         Controls::{LoadIconMetric, LIM_SMALL, WM_CONTEXTMENU},
         Shell::{
-            ShellExecuteA, Shell_NotifyIconA, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP, NIF_TIP, NIM_ADD,
-            NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0, NOTIFYICON_VERSION_4,
-            NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
+            FOLDERID_Startup, ShellExecuteA, Shell_NotifyIconA, NIF_ICON, NIF_MESSAGE, NIF_SHOWTIP,
+            NIF_TIP, NIM_ADD, NIM_DELETE, NIM_SETVERSION, NOTIFYICONDATAA, NOTIFYICONDATAA_0,
+            NOTIFYICON_VERSION_4, NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
         },
         WindowsAndMessaging::{
-            GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx, HICON,
-            SM_MENUDROPALIGNMENT, SW_SHOWNORMAL, TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON,
-            WM_APP, WM_CLOSE,
+            CheckMenuItem, GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx,
+            HICON, MF_CHECKED, MF_UNCHECKED, SM_MENUDROPALIGNMENT, SW_SHOWNORMAL, TPM_LEFTALIGN,
+            TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_CLOSE,
         },
     },
 };
@@ -29,7 +31,7 @@ use rfd::FileDialog;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{mem, ptr, thread};
+use std::{env, mem, ptr, thread};
 use windows::{Guid, HRESULT};
 
 // Specified in `build.rs:compile_windows_resources`
@@ -42,6 +44,7 @@ static ICON_TOOLTIP: &str = "Snip &&& AutoSave";
 const IDM_EXIT: usize = 121;
 const IDM_SET_LOCATION: usize = 122;
 const IDM_OPEN_LOCATION: usize = 123;
+const IDM_START_AUTOMATICALLY: usize = 124;
 
 /// The message ID of notification area icon messages.
 pub const WMAPP_NOTIFYCALLBACK: u32 = WM_APP + 1;
@@ -140,6 +143,10 @@ pub fn on_command(window: HWND, command: usize) -> Option<LRESULT> {
             explore_screenshot_dir(window).unwrap();
             Some(LRESULT(0))
         }
+        IDM_START_AUTOMATICALLY => {
+            toggle_auto_start().unwrap();
+            Some(LRESULT(0))
+        }
         _ => None,
     }
 }
@@ -193,9 +200,22 @@ fn default_notify_icon_data() -> NOTIFYICONDATAA {
 /// * `click_x` - The mouse X position of the right click.
 /// * `click_y` - The mouse Y position of the right click.
 fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
+    let mut auto_start = false;
+    Settings::read(|s| auto_start = s.program.auto_start);
+
     unsafe {
         let menu = load_menu(get_instance().unwrap(), PSTR(200 as *mut u8));
         let submenu = GetSubMenu(menu.value(), 0);
+
+        CheckMenuItem(
+            menu.value(),
+            IDM_START_AUTOMATICALLY as u32,
+            if auto_start {
+                MF_CHECKED.0
+            } else {
+                MF_UNCHECKED.0
+            },
+        );
 
         SetForegroundWindow(window);
 
@@ -304,4 +324,31 @@ fn find_existing_parent(path: &Path) -> PathBuf {
     }
 
     current_path.into()
+}
+
+/// Adds / removes a shortcut to this program from the user's start-up folder,
+/// depending on their current auto-start setting.
+fn toggle_auto_start() -> windows::Result<()> {
+    let mut auto_start = false;
+    Settings::read(|s| auto_start = s.program.auto_start);
+
+    let mut startup_path = get_known_folder_path(FOLDERID_Startup)?;
+    startup_path.push("Snip & AutoSave.lnk");
+
+    if auto_start {
+        // Remove shortcut from start-up folder
+        let _ = std::fs::remove_file(startup_path);
+
+        Settings::write(|s| s.program.auto_start = false);
+    } else {
+        // Add shortcut to start-up folder
+        create_link(
+            &startup_path,
+            dunce::simplified(&env::current_exe().unwrap()),
+        )?;
+
+        Settings::write(|s| s.program.auto_start = true);
+    }
+
+    Ok(())
 }

@@ -22,8 +22,24 @@ const SETTINGS_FILE: &str = "settings.toml";
 /// section in the settings file.
 #[derive(Serialize, Deserialize, Default)]
 pub struct Settings {
+    /// General program configuration.
+    pub program: Program,
+
     /// Paths used by the application.
     pub paths: Paths,
+}
+
+/// General program configuration.
+#[derive(Serialize, Deserialize)]
+pub struct Program {
+    /// Whether or not to start the program automatically when the user logs in.
+    pub auto_start: bool,
+}
+
+impl Default for Program {
+    fn default() -> Self {
+        Self { auto_start: false }
+    }
 }
 
 /// Container for paths used by the application.

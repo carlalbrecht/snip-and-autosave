@@ -3,6 +3,7 @@
 #define IDM_EXIT 121
 #define IDM_SET_LOCATION 122
 #define IDM_OPEN_LOCATION 123
+#define IDM_START_AUTOMATICALLY 124
 
 #define IDC_CONTEXTMENU 200
 
@@ -14,6 +15,8 @@ BEGIN
     BEGIN
         MENUITEM "Set Screenshot Storage Location...", IDM_SET_LOCATION
         MENUITEM "Open Screenshot Folder", IDM_OPEN_LOCATION
+        MENUITEM SEPARATOR
+        MENUITEM "Start Automatically on Log In", IDM_START_AUTOMATICALLY
         MENUITEM SEPARATOR
         MENUITEM "E&xit", IDM_EXIT
     END

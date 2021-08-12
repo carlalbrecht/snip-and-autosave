@@ -18,6 +18,8 @@ chrono = "0.4"
 rayon = "1.5"
 rfd = "0.4"
 maplit = "1.0"
+widestring = "0.4"
+dunce = "1.0"
 
 [build-dependencies]
 embed-resource = "1.6"

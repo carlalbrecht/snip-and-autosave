@@ -14,8 +14,12 @@ fn main() {
             System::{
                 Console::AttachConsole,
                 Com::{
+                    IPersistFile,
                     CoInitializeEx,
-                    COINIT
+                    CoCreateInstance,
+                    CoTaskMemFree,
+                    COINIT,
+                    CLSCTX
                 },
                 DataExchange::{
                     AddClipboardFormatListener,
@@ -37,8 +41,14 @@ fn main() {
             },
             Graphics::Gdi::{BITMAPINFO, BITMAPINFOHEADER, BI_BITFIELDS},
             UI::Shell::{
+                IKnownFolder,
+                IKnownFolderManager,
+                IShellLinkA,
+                KnownFolderManager,
+                ShellLink,
                 ShellExecuteA,
                 Shell_NotifyIconA,
+                FOLDERID_Startup,
                 NOTIFYICONDATAA,
                 NOTIFY_ICON_DATA_FLAGS,
                 NOTIFYICON_VERSION_4,

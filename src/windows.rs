@@ -9,10 +9,13 @@
 
 use crate::extensions::CStringExtensions;
 use bindings::Windows::Win32::{
-    Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND, LPARAM, PSTR, WPARAM},
+    Foundation::{CloseHandle, BOOL, HANDLE, HINSTANCE, HWND, LPARAM, PSTR, PWSTR, WPARAM},
     Graphics::Gdi::BITMAPINFO,
     System::{
-        Com::{CoInitializeEx, COINIT},
+        Com::{
+            CoCreateInstance, CoInitializeEx, CoTaskMemFree, IPersistFile, CLSCTX_INPROC_SERVER,
+            COINIT,
+        },
         Console::AttachConsole,
         DataExchange::{
             AddClipboardFormatListener, CloseClipboard, GetClipboardData,
@@ -23,18 +26,23 @@ use bindings::Windows::Win32::{
         SystemServices::{CF_DIB, CLIPBOARD_FORMATS},
         Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
     },
-    UI::WindowsAndMessaging::{
-        CreateWindowExA, DestroyMenu, DestroyWindow, DispatchMessageA, FindWindowA, GetMessageA,
-        GetWindowThreadProcessId, LoadMenuA, PostQuitMessage, RegisterClassA, SendNotifyMessageA,
-        TranslateMessage, CW_USEDEFAULT, HMENU, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSA,
-        WNDPROC,
+    UI::{
+        Shell::{IKnownFolderManager, IShellLinkA, KnownFolderManager, ShellLink},
+        WindowsAndMessaging::{
+            CreateWindowExA, DestroyMenu, DestroyWindow, DispatchMessageA, FindWindowA,
+            GetMessageA, GetWindowThreadProcessId, LoadMenuA, PostQuitMessage, RegisterClassA,
+            SendNotifyMessageA, TranslateMessage, CW_USEDEFAULT, HMENU, MSG, WINDOW_EX_STYLE,
+            WINDOW_STYLE, WNDCLASSA, WNDPROC,
+        },
     },
 };
 use core::ptr;
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{mem, thread};
-use windows::{IntoParam, HRESULT};
+use widestring::U16CString;
+use windows::{Guid, Interface, IntoParam, HRESULT};
 
 /// The class name of the root message-only window used for clipboard events.
 pub const CLASS_NAME: &str = "SnASWindow";
@@ -104,6 +112,19 @@ pub fn attach_console() -> bool {
 /// [`CoInitializeEx`]: CoInitializeEx
 pub fn com_initialize(coinit: COINIT) -> windows::Result<()> {
     unsafe { CoInitializeEx(ptr::null_mut(), coinit) }
+}
+
+/// Safe wrapper around [`CoCreateInstance`]. Note that [`com_initialize`] must
+/// be called before calling this, otherwise calls to this function will always
+/// fail.
+///
+/// [`CoCreateInstance`]: CoCreateInstance
+/// [`com_initialize`]: com_initialize
+pub fn com_create_instance<T>(class_id: Guid) -> windows::Result<T>
+where
+    T: Interface,
+{
+    unsafe { CoCreateInstance(&class_id, None, CLSCTX_INPROC_SERVER) }
 }
 
 /// Safe wrapper around [`GetModuleHandleA`], which gets the module handle for
@@ -438,6 +459,43 @@ pub unsafe fn load_menu<'a>(
     AutoClose::new(menu, |m| {
         DestroyMenu(m);
     })
+}
+
+/// Gets the full path to a Windows [known folder].
+///
+/// [known folder]: https://docs.microsoft.com/en-us/windows/win32/shell/knownfolderid
+pub fn get_known_folder_path(folder_id: Guid) -> windows::Result<PathBuf> {
+    let known_folder_manager: IKnownFolderManager = com_create_instance(KnownFolderManager)?;
+    let path: PathBuf;
+
+    unsafe {
+        let folder = known_folder_manager.GetFolder(&folder_id)?;
+        let path_str = folder.GetPath(0)?;
+
+        let path_string = U16CString::from_ptr_str(path_str.0);
+        path = PathBuf::from(path_string.to_os_string());
+
+        CoTaskMemFree(path_str.0 as *mut c_void);
+    }
+
+    Ok(path)
+}
+
+/// Creates a .lnk shortcut file at `link_location`, that points to `target`.
+pub fn create_link(link_location: &Path, target: &Path) -> windows::Result<()> {
+    let link_path = U16CString::from_os_str(link_location.as_os_str()).unwrap();
+    let target_path = CString::new(target.to_string_lossy().to_string()).unwrap();
+
+    let shell_link: IShellLinkA = com_create_instance(ShellLink)?;
+
+    unsafe {
+        shell_link.SetPath(target_path.as_pstr())?;
+
+        let persist_file = shell_link.cast::<IPersistFile>().unwrap();
+        persist_file.Save(PWSTR(link_path.as_ptr() as *mut u16), BOOL::from(true))?;
+    }
+
+    Ok(())
 }
 
 /// Safe wrapper around [`PostQuitMessage`], which posts a [`WM_QUIT`] message
