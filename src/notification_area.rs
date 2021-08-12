@@ -21,9 +21,9 @@ use bindings::Windows::Win32::{
             NOTIFYICON_VERSION_4, NOTIFY_ICON_DATA_FLAGS, NOTIFY_ICON_MESSAGE,
         },
         WindowsAndMessaging::{
-            CheckMenuItem, GetSubMenu, GetSystemMetrics, SetForegroundWindow, TrackPopupMenuEx,
-            HICON, MF_CHECKED, MF_UNCHECKED, SM_MENUDROPALIGNMENT, SW_SHOWNORMAL, TPM_LEFTALIGN,
-            TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_CLOSE,
+            CheckMenuItem, GetSubMenu, GetSystemMetrics, SetForegroundWindow, SetMenuDefaultItem,
+            TrackPopupMenuEx, HICON, MF_CHECKED, MF_UNCHECKED, SM_MENUDROPALIGNMENT, SW_SHOWNORMAL,
+            TPM_LEFTALIGN, TPM_RIGHTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_CLOSE, WM_LBUTTONDBLCLK,
         },
     },
 };
@@ -121,6 +121,10 @@ pub fn notify_callback(window: HWND, w_param: WPARAM, l_param: LPARAM) -> LRESUL
 
             LRESULT(0)
         }
+        WM_LBUTTONDBLCLK => {
+            explore_screenshot_dir(window).unwrap();
+            LRESULT(0)
+        }
         _ => LRESULT(0),
     }
 }
@@ -207,8 +211,10 @@ fn show_context_menu(window: HWND, (click_x, click_y): (usize, usize)) {
         let menu = load_menu(get_instance().unwrap(), PSTR(200 as *mut u8));
         let submenu = GetSubMenu(menu.value(), 0);
 
+        SetMenuDefaultItem(submenu, IDM_OPEN_LOCATION as u32, 0);
+
         CheckMenuItem(
-            menu.value(),
+            submenu,
             IDM_START_AUTOMATICALLY as u32,
             if auto_start {
                 MF_CHECKED.0

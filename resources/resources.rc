@@ -13,10 +13,10 @@ IDC_CONTEXTMENU MENU
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "Set Screenshot Storage Location...", IDM_SET_LOCATION
         MENUITEM "Open Screenshot Folder", IDM_OPEN_LOCATION
+        MENUITEM "Set Screenshot Storage Location...", IDM_SET_LOCATION
         MENUITEM SEPARATOR
-        MENUITEM "Start Automatically on Log In", IDM_START_AUTOMATICALLY
+        MENUITEM "Start Automatically On Login", IDM_START_AUTOMATICALLY
         MENUITEM SEPARATOR
         MENUITEM "E&xit", IDM_EXIT
     END
