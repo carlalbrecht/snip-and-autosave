@@ -27,7 +27,7 @@ pub fn clipboard_owned_by_snip_and_sketch(clipboard: &Clipboard) -> windows::Res
     // This basically abuses shell clipboard formats etc. to determine whether
     // the clipboard object is an OLE object, and uses UWP's PNG format. This
     // helps filter other programs like Adobe XD, that make `svchost.exe` own
-    // image clipboard objects.
+    // its image clipboard objects.
     // https://docs.microsoft.com/en-us/windows/win32/shell/clipboard
     let (_standard_formats, registered_formats) = clipboard_format_names(&clipboard);
     let format_heuristic = registered_formats.is_superset(&hashset! {

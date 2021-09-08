@@ -102,7 +102,8 @@ pub struct Clipboard(AutoClose<()>);
 /// the program was started by double clicking on it in explorer, or via any
 /// other graphical process.
 pub fn attach_console() -> bool {
-    const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF;
+    // https://docs.microsoft.com/en-us/windows/console/attachconsole
+    const ATTACH_PARENT_PROCESS: u32 = 0xFFFFFFFF; // = (DWORD)-1
 
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS).0 != 0 }
 }
